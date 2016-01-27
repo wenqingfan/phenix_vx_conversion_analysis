@@ -74,7 +74,7 @@ class PointVal2DSortedEnd : public PointVal2DSorted
     }
     virtual void append_list( vector<PointVal2D>& point_list, float X_LO, float X_HI, float Y_LO, float Y_HI )
     {
-      cout<<"append from "<<points.size()<<" points"<<endl;
+      cout<<"append from "<<(points.size())<<" points"<<endl;
       for(unsigned int i=0;i<points.size();++i)
       {
         if( (points[i].x<X_LO) || (points[i].x>X_HI) || (points[i].y<Y_LO) || (points[i].y>Y_HI) ){continue;}
