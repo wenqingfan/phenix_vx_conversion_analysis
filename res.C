@@ -518,6 +518,7 @@ void fill_alpha_r_phi()
   {
     t->GetEntry(i);
     PointVal2D point(alpha,r,phi);
+    cout<<"inserting "<<point.x<<" "<<point.y<<" "<<point.z<<endl;
     alpha_r_phi.insert(point);
   }
   f.Close();
