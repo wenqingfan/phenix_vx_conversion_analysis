@@ -1,16 +1,161 @@
 #include <math.h>
-using namespace std;
+#include <iostream>
+#include "TMath.h"
+#include "TLorentzVector.h"
+#include "TSystem.h"
+#include "TFile.h"
+#include "TTree.h"
+#include "TH2F.h"
+#include "TH1F.h"
+#include "TMatrixD.h"
+#include "TNtuple.h"
+#include "MyPion.h"
+// using namespace std;
 static const double Me = 0.000510998918;  // Particle Data Group 7-25-2004
 static const double Me2 = Me*Me;
 static const double c = 299792458;
 
 
+
+struct PointVal2D
+{
+  float x,y;// independent variables
+  float z;// dependent variable
+  PointVal2D(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
+  PointVal2D(){}
+};
+
+class PointVal2DSorted
+{
+  protected:
+    float x_lo, x_hi;
+    float y_lo, y_hi;
+
+    int level;
+    int maxlevel;
+
+    PointVal2DSorted* containers[2][2];
+
+    public:
+      PointVal2DSorted( float X_LO, float X_HI, float Y_LO, float Y_HI, int MLEV, int LEV=0 ) : x_lo(X_LO), x_hi(X_HI), y_lo(Y_LO), y_hi(Y_HI), level(LEV), maxlevel(MLEV)
+      {
+        for(unsigned int i=0;i<2;++i){for(unsigned int j=0;j<2;++j){containers[i][j]=NULL;}}
+      }
+      virtual ~PointVal2DSorted()
+      {
+        for(unsigned int i=0;i<2;++i){
+          for(unsigned int j=0;j<2;++j){
+              if(containers[i][j]!=NULL)
+              {
+                delete containers[i][j];
+              }}}
+      }
+      virtual bool insert( PointVal2D const& point );
+      virtual void append_list( vector<PointVal2D>& point_list, float X_LO, float X_HI, float Y_LO, float Y_HI )
+      {
+        for(unsigned int i=0;i<2;++i){
+          for(unsigned int j=0;j<2;++j){
+              if(containers[i][j]==NULL){continue;}
+              if( (containers[i][j]->x_hi<X_LO) || (containers[i][j]->x_lo>X_HI) || (containers[i][j]->y_hi<Y_LO) || (containers[i][j]->y_lo>Y_HI) ){continue;}
+              containers[i][j]->append_list( point_list, X_LO, X_HI, Y_LO, Y_HI );}}
+      }
+};
+
+class PointVal2DSortedEnd : public PointVal2DSorted
+{
+  public:
+    PointVal2DSortedEnd( float X_LO, float X_HI, float Y_LO, float Y_HI, int MLEV, int LEV=0 ) : PointVal2DSorted( X_LO,X_HI,Y_LO,Y_HI,MLEV,LEV ){}
+    virtual ~PointVal2DSortedEnd(){}
+    virtual bool insert( PointVal2D const& point )
+    {
+      points.push_back(point);
+      return true;
+    }
+    virtual void append_list( vector<PointVal2D>& point_list, float X_LO, float X_HI, float Y_LO, float Y_HI )
+    {
+      for(unsigned int i=0;i<points.size();++i)
+      {
+        if( (points[i].x<X_LO) || (points[i].x>X_HI) || (points[i].y<Y_LO) || (points[i].y>Y_HI) ){continue;}
+        point_list.push_back( points[i] );
+      }
+    }
+  protected:
+    vector<PointVal2D> points;
+};
+
+bool PointVal2DSorted::insert( PointVal2D const& point )
+{
+  if( (point.x < x_lo) || (point.y < y_lo) || (point.x > x_hi) || (point.y > y_hi) )
+  {
+    return false;
+  }
+
+  int x_ind = 0;
+  if(point.x > (x_lo + 0.5*(x_hi-x_lo))){x_ind=1;}
+  int y_ind = 0;
+  if(point.y > (y_lo + 0.5*(y_hi-y_lo))){y_ind=1;}
+
+  if( containers[x_ind][y_ind] == NULL )
+  {
+    float x_lo_new = x_lo + (float(x_ind))*0.5*(x_hi-x_lo);
+    float x_hi_new = x_lo_new + 0.5*(x_hi-x_lo);
+
+    float y_lo_new = y_lo + (float(y_ind))*0.5*(y_hi-y_lo);
+    float y_hi_new = y_lo_new + 0.5*(y_hi-y_lo);
+
+    if(level < maxlevel)
+    {
+      containers[x_ind][y_ind] = new PointVal2DSorted( x_lo_new,x_hi_new, y_lo_new,y_hi_new, maxlevel, level+1 );
+    }
+    else
+    {
+      containers[x_ind][y_ind] = new PointVal2DSortedEnd( x_lo_new,x_hi_new, y_lo_new,y_hi_new, maxlevel, level+1 );
+    }
+  }
+  return containers[x_ind][y_ind]->insert( point );
+}
+
+
+PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 30., 8 );
+
+
+
+
 float fit(float alpha, float r)//r in unit of cm
 {
-    float phi;
-    //phi = 0.009672234614882405+1.863199816951874*alpha+0.3408938176648345*alpha*alpha-0.09473221676982421*(r/100)-2.196733830137172*alpha*(r/100)+0.3518546236833466*(r/100)*(r/100);
-    phi = (-0.000563615+1.98033*alpha+0.00722406*(r/100)-0.947033*alpha*(r/100)-0.770467*alpha*alpha-0.0128542*(r/100)*(r/100))/(1-0.377809*alpha+0.913216*(r/100)-0.848801*alpha*(r/100)-0.142*alpha*alpha+0.140344*(r/100)*(r/100));
-    return phi;
+    // float phi;
+    // //phi = 0.009672234614882405+1.863199816951874*alpha+0.3408938176648345*alpha*alpha-0.09473221676982421*(r/100)-2.196733830137172*alpha*(r/100)+0.3518546236833466*(r/100)*(r/100);
+    // phi = (-0.000563615+1.98033*alpha+0.00722406*(r/100)-0.947033*alpha*(r/100)-0.770467*alpha*alpha-0.0128542*(r/100)*(r/100))/(1-0.377809*alpha+0.913216*(r/100)-0.848801*alpha*(r/100)-0.142*alpha*alpha+0.140344*(r/100)*(r/100));
+    // return phi;
+
+  float r_cm = r/100.;
+  vector<PointVal2D> points;
+  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.02, r_cm + 0.02 );
+
+  cout<<"points.size() = "<<points.size()<<endl;
+
+  TMatrixD X( points.size(), 6 );
+  TMatrixD y( points.size(), 1 );
+  for(unsigned int i=0;i<points.size();i+=1)
+  {
+    y(i,0) = points[i].z;
+    // p0 + p1*x + p2*y + p3*x^2 + p4*xy + p5*y^2
+    X(i,0) = 1.;
+    X(i,1) = points[i].x;
+    X(i,2) = points[i].y;
+    X(i,3) = points[i].x*points[i].x;
+    X(i,4) = points[i].x*points[i].y;
+    X(i,5) = points[i].y*points[i].y;
+  }
+  TMatrixD Xt( 6, points.size() );
+  Xt.Transpose(X);
+
+  TMatrixD XtX = Xt * X;
+  XtX.Invert();
+
+  TMatrixD beta = XtX * (Xt * y);
+
+  return ( beta(0,0) + beta(1,0)*alpha + beta(2,0)*r_cm + beta(3,0)*alpha*alpha + beta(4,0)*alpha*r_cm + beta(5,0)*r_cm*r_cm );
 }
 
 float fitp(float alpha, float r)//r in unit of cm
@@ -39,7 +184,8 @@ float fittf(float alpha, float r)
 
 
 float phir(float alpha, float phiDC, float r)
-{//DC coord sys: phi -0.5Pi~1.5Pi
+{
+  //DC coord sys: phi -0.5Pi~1.5Pi
     float absalpha, phirDC;
     absalpha=TMath::Abs(alpha);
   if ((r<0)||(r>26))
@@ -359,9 +505,28 @@ float getConvertedPhotonE(float px1, float py1, float pz1, float px2, float py2,
   return pair.E();
 }
 
+void fill_alpha_r_phi()
+{
+  TFile f("alpha_p_r_phi.root");
+  TNtuple* t=0;
+  f.GetObject("alpha_p_r_phi", t);
+  float alpha,r,phi;
+  t->SetBranchAddress("alpha",&alpha);
+  t->SetBranchAddress("r",&r);
+  t->SetBranchAddress("phi",&phi);
+  for(int i=0;i<t->GetEntries();i+=1)
+  {
+    t->GetEntry(i);
+    PointVal2D point(alpha,r,phi);
+    alpha_r_phi.insert(point);
+  }
+  f.Close();
+}
+
 void res(const char* inFile = "retrack.root")
-{// poold is pool depth
+{
   gSystem->Load("libMyPion");
+  fill_alpha_r_phi();
   TFile* f1 = new TFile(inFile,"READ");
   if(!(f1)){
         cout<<"can't find input file..."<<endl;
