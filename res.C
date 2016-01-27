@@ -77,7 +77,10 @@ class PointVal2DSortedEnd : public PointVal2DSorted
       cout<<"append from "<<(points.size())<<" points"<<endl;
       for(unsigned int i=0;i<points.size();++i)
       {
+        cout<<(points[i].x)<<" "<<(points[i].y)<<" "<<X_LO<<" "<<X_HI<<" "<<Y_LO<<" "<<Y_HI<<endl;
+
         if( (points[i].x<X_LO) || (points[i].x>X_HI) || (points[i].y<Y_LO) || (points[i].y>Y_HI) ){continue;}
+        cout<<"appending"<<endl;
         point_list.push_back( points[i] );
       }
     }
