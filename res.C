@@ -1,0 +1,804 @@
+#include <math.h>
+using namespace std;
+static const double Me = 0.000510998918;  // Particle Data Group 7-25-2004
+static const double Me2 = Me*Me;
+static const double c = 299792458;
+
+
+float fit(float alpha, float r)//r in unit of cm
+{
+    float phi;
+    //phi = 0.009672234614882405+1.863199816951874*alpha+0.3408938176648345*alpha*alpha-0.09473221676982421*(r/100)-2.196733830137172*alpha*(r/100)+0.3518546236833466*(r/100)*(r/100);
+    phi = (-0.000563615+1.98033*alpha+0.00722406*(r/100)-0.947033*alpha*(r/100)-0.770467*alpha*alpha-0.0128542*(r/100)*(r/100))/(1-0.377809*alpha+0.913216*(r/100)-0.848801*alpha*(r/100)-0.142*alpha*alpha+0.140344*(r/100)*(r/100));
+    return phi;
+}
+
+float fitp(float alpha, float r)//r in unit of cm
+{
+    float p, absalpha;
+    absalpha=TMath::Abs(alpha);
+    if (r<0)
+    {
+      return -9;
+    }
+    p = (159827-17737.8*absalpha+28681.6*(r/100)+3088.24*absalpha*(r/100)+26132.8*absalpha*absalpha-96682*(r/100)*(r/100))/(1+1.54242*1000000*absalpha-17.7326*(r/100)+276875*absalpha*(r/100)-170012*absalpha*absalpha+58.7012*(r/100)*(r/100));
+    return p;
+}
+
+float fittf(float alpha, float r)
+{
+  float tf, absalpha;
+    absalpha=TMath::Abs(alpha);
+    if (r<0)
+    {
+      return -9;
+    }
+  tf = (7.34066*1e-9+3.98058*1e-10*absalpha-2.41566*1e-9*(r/100)-2.17247*1e-9*absalpha*(r/100)-1.37446*1e-10*absalpha*absalpha+2.12644*1e-9*(r/100)*(r/100))/(1+0.0618078*absalpha+0.12285*(r/100)-0.346296*absalpha*(r/100)-0.419324*absalpha*absalpha+0.406774*(r/100)*(r/100));
+  return tf;
+}
+
+
+float phir(float alpha, float phiDC, float r)
+{//DC coord sys: phi -0.5Pi~1.5Pi
+    float absalpha, phirDC;
+    absalpha=TMath::Abs(alpha);
+  if ((r<0)||(r>26))
+  {
+      return TMath::Pi()/2;
+  }
+
+    if (alpha>0)//electron!
+    {
+        phirDC = phiDC + fit(absalpha, r);
+    }
+    else//positron!
+    {
+        phirDC = phiDC - fit(absalpha, r);
+    }
+    if (phirDC>1.5*TMath::Pi())
+    {
+        phirDC = phirDC-TMath::Pi();
+    }
+    if (phirDC<-0.5*TMath::Pi())
+    {
+      phirDC = phirDC+2*TMath::Pi();
+    }
+    return phirDC;
+}
+
+float Radius(float alpha_e, float alpha_p, float phi_e, float phi_p, float r)
+{
+    float fi_e, fi_p, dfi;
+
+    fi_e = phir(alpha_e, phi_e, r);
+    fi_p = phir(alpha_p, phi_p, r);
+    dfi = fi_p-fi_e;
+
+    return dfi;
+}
+
+float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
+{
+  float ARANGE=0.6;
+  float epsilon_f = 0.0001;//opening angle resolution, used for root finding
+    float prev=0, now=0, middle;// in unit of cm
+    float convptr_r;
+    float s1, s2, dR=99;// angle, in unit of rad
+
+
+    if ((TMath::Abs(alpha_e)>ARANGE) || (TMath::Abs(alpha_p)>ARANGE))
+    {//out of reconstruction range
+      return -89.0;
+    }
+  else
+  {//FindRoot, bisection
+    for (int i = 0; i < 250; ++i)
+    {
+    //assmue in 0.1cm bracket, it's monotomic!!!!!
+    //find the bracket that contain a root
+      s1 = 0.1*i;
+      s2 = 0.1*(i+1);
+      //cout<<Radius(alpha_e, alpha_p, phi_e, phi_p, s1)<<" "<<Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<<endl;
+      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)==0)
+      {
+        return s1;
+      }
+      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s2)==0)
+      {
+        return s2;
+      }
+      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)*Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<0)
+      {//there is root
+        if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, s1)-Radius(alpha_e, alpha_p, phi_e, phi_p, s2))<dR)
+        {//better guess
+          dR = TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, s1)-Radius(alpha_e, alpha_p, phi_e, phi_p, s2));
+          prev = s1;
+          now = s2;
+        }
+      }
+    }
+
+    if (prev==now)
+    {// no bracket found
+      return -99.0;
+    }
+
+
+      middle = (prev+now)/2;
+
+      // cout<<"alpha_e"<<alpha_e<<"alpha_p"<<alpha_p<<"phi_e"<<phi_e<<"phi_p"<<phi_p<<endl;
+      // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, prev)<<endl;
+      // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, now)<<endl;
+      // cout<<fit(TMath::Abs(alpha_e), 25.0)<<" "<<fit(TMath::Abs(alpha_p), 25.0)<<endl;
+      // cout<<phir(alpha_e, phi_e, 25)<<" "<<phir(alpha_p, phi_p, 25)<<endl;
+
+      //check if root is at the ends of bracket
+      if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, prev))<epsilon_f)
+      {
+        return prev;
+      }
+
+      if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, now))<epsilon_f)
+      {
+        return now;
+      }
+
+      //root is not at the ends of bracket
+      if (Radius(alpha_e, alpha_p, phi_e, phi_p, prev)*Radius(alpha_e, alpha_p, phi_e, phi_p, now)>0)
+      {
+        cout<<"no conversion radius in bracket"<<"["<<prev<<","<<now<<"]"<<endl;
+      return -99.0;//meaning no corresponding conversion pnt
+      }
+
+      else//meaning => Radius(alpha_p, alpha_e, phi_p, phi_e, prev)*Radius(alpha_p, alpha_e, phi_p, phi_e, now)<0
+      {
+        // cout<<"there is root"<<endl;
+        // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
+        while((TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, middle))>epsilon_f) && (TMath::Abs(prev-middle)>0.1))//0.1cm=1mm
+        {
+        //cout<<"into while arg"<<endl;
+          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)<0)
+          {
+            now = middle;
+            middle = (prev+now)/2;
+          }
+          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)>0)
+          {
+            prev = middle;
+            middle = (prev+now)/2;
+          }
+          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)==0)
+          {
+            break;
+          }
+          // cout<<"middle in while"<<middle<<endl;
+          // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
+        }
+        return middle;//convert m to cm
+      }
+
+      //phir_r = phir(alpha_e,phi_e,convptr_r);
+
+      // cout<<"middle"<<middle<<endl;
+      // cout<<"con"<<convptr_r<<endl;
+  }
+}
+
+float getPT(float px1, float py1, float pz1, float px2, float py2, float pz2)
+{
+  TLorentzVector p1;
+  TLorentzVector p2;
+  TLorentzVector pair;
+
+  p1.SetX(px1);
+  p1.SetY(py1);
+  p1.SetZ(pz1);
+  p1.SetE(sqrt(pow(p1.P(),2) + Me2));
+
+  p2.SetX(px2);
+  p2.SetY(py2);
+  p2.SetZ(pz2);
+  p2.SetE(sqrt(pow(p2.P(),2) + Me2));
+
+  pair = p1 + p2;//pair corresponds to photon if the pair matches
+
+  return pair.Pt();
+}
+
+float getPhiv(float px_e, float py_e, float pz_e, float px_p, float py_p, float pz_p)
+{
+  TLorentzVector p1;
+  TLorentzVector p2;
+  TLorentzVector pair;
+
+  p1.SetX(px_e);
+  p1.SetY(py_e);
+  p1.SetZ(pz_e);
+  p1.SetE(sqrt(pow(p1.P(),2) + Me2));
+
+  p2.SetX(px_p);
+  p2.SetY(py_p);
+  p2.SetZ(pz_p);
+  p2.SetE(sqrt(pow(p2.P(),2) + Me2));
+
+  pair = p1 + p2;//pair corresponds to photon if the pair matches
+
+
+  TVector3 P1, P2, Photon, z, v, u, w, wc;
+
+  z.SetX(0);
+  z.SetY(0);
+  z.SetZ(1);//unit vector along z
+
+  P1.SetX(px_e);
+  P1.SetY(py_e);
+  P1.SetZ(pz_e);
+
+  P2.SetX(px_p);
+  P2.SetY(py_p);
+  P2.SetZ(pz_p);
+
+  Photon.SetX(pair.Px());
+  Photon.SetY(pair.Py());
+  Photon.SetZ(pair.Pz());
+
+
+  v = (P1.Cross(P2)).Unit();//unit vector v corresponds to the unit vector of the cross product of ep pair
+  u = Photon.Unit();
+  w = (u.Cross(v)).Unit();
+  wc = (u.Cross(z)).Unit();
+
+  float phiv =-9999;
+  phiv = acos(-w.Dot(wc));
+
+
+  return phiv;
+}
+
+float getMass(float px1, float py1, float pz1, float px2, float py2, float pz2)
+{
+  TLorentzVector p1;
+  TLorentzVector p2;
+  TLorentzVector pair;
+
+  p1.SetX(px1);
+  p1.SetY(py1);
+  p1.SetZ(pz1);
+  p1.SetE(sqrt(pow(p1.P(),2) + Me2));
+
+  p2.SetX(px2);
+  p2.SetY(py2);
+  p2.SetZ(pz2);
+  p2.SetE(sqrt(pow(p2.P(),2) + Me2));
+
+  pair = p1 + p2;
+
+ 
+  return pair.M();
+}
+
+float getPi0Mass(float px1, float py1, float pz1, float px2, float py2, float pz2, float px, float py, float pz)
+{// px, py, pz correspond to emcal photon cluster 
+  TLorentzVector p1, p2;
+  TLorentzVector convPhoton, emcPhoton;
+  TLorentzVector pi0;
+
+  p1.SetX(px1);
+  p1.SetY(py1);
+  p1.SetZ(pz1);
+  p1.SetE(sqrt(pow(p1.P(),2) + Me2));
+
+  p2.SetX(px2);
+  p2.SetY(py2);
+  p2.SetZ(pz2);
+  p2.SetE(sqrt(pow(p2.P(),2) + Me2));
+
+  convPhoton = p1 + p2;
+
+  emcPhoton.SetX(px);
+  emcPhoton.SetY(py);
+  emcPhoton.SetZ(pz);
+  emcPhoton.SetE(emcPhoton.P());
+
+  pi0 = convPhoton+emcPhoton;
+
+  return pi0.M();
+}
+
+float getPi0Mass(float px1, float py1, float pz1, float px2, float py2, float pz2)
+{// px, py, pz correspond to emcal photon cluster 
+  TLorentzVector convPhoton, emcPhoton;
+  TLorentzVector pi0;
+
+  convPhoton.SetX(px1);
+  convPhoton.SetY(py1);
+  convPhoton.SetZ(pz1);
+  convPhoton.SetE(convPhoton.P());
+
+  emcPhoton.SetX(px2);
+  emcPhoton.SetY(py2);
+  emcPhoton.SetZ(pz2);
+  emcPhoton.SetE(emcPhoton.P());
+
+  pi0 = convPhoton+emcPhoton;
+
+  return pi0.M();
+}
+
+
+float getEmcPhotonMass(float px, float py, float pz, float E)
+{
+  TLorentzVector photon;
+
+  photon.SetX(px);
+  photon.SetY(py);
+  photon.SetZ(pz);
+  photon.SetE(E);
+
+  return photon.M();
+}
+
+float getConvertedPhotonE(float px1, float py1, float pz1, float px2, float py2, float pz2)
+{
+  TLorentzVector p1;
+  TLorentzVector p2;
+  TLorentzVector pair;
+
+  p1.SetX(px1);
+  p1.SetY(py1);
+  p1.SetZ(pz1);
+  p1.SetE(sqrt(pow(p1.P(),2) + Me2));
+
+  p2.SetX(px2);
+  p2.SetY(py2);
+  p2.SetZ(pz2);
+  p2.SetE(sqrt(pow(p2.P(),2) + Me2));
+
+  pair = p1 + p2;
+
+  return pair.E();
+}
+
+void res(const char* inFile = "retrack.root")
+{// poold is pool depth
+  gSystem->Load("libMyPion");
+  TFile* f1 = new TFile(inFile,"READ");
+  if(!(f1)){
+        cout<<"can't find input file..."<<endl;
+        exit(1);
+    }
+  TTree* retrack = (TTree*)f1->Get("retrack");
+  TBranch* br = retrack->GetBranch("MyPion");
+  MyPion* pion=0;
+  br->SetAddress(&pion);
+
+  TH1F* dconvptT = new TH1F("dconvptT","r resolution;r_{conv}-r_{true} (cm)",1000,-10,10);
+  TH1F* dphiT = new TH1F("dphiT","phi resolution;#phi_{conv}-#phi_{true} (rad)",1000,-0.04,0.04);
+  TH2F* drdphi  = new TH2F("drdphi","dr versus dphi in transverse plane;dr (cm);dphi (rad)",500,0,10,500,0,0.04);
+
+  // TH1F* phoT_conv = new TH1F("phoT_conv","reconstructed pT_{#gamma};pT_{ee} (GeV)",1000,0,1);
+  // TH1F* phoT_emc = new TH1F("phoT_emc","reconstructed pT_{#gamma};pT_{#gamma} (GeV)",1000,0,1);
+
+  const int ptbin=11;
+  //======================================================
+  //                    p resolution
+  //======================================================
+  TH1F* dpT_r[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dpT_r[i] = new TH1F(Form("dpT_r[%d]", i),"difference of MCsingle pT_{e^{+}} and reconstructed pT_{e^{+}};dpT_{e^{+}} (GeV)",1000,-1,1);
+  }
+  TH1F* dphoT_r[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dphoT_r[i] = new TH1F(Form("dphoT_r[%d]", i),"difference of true pT_{#gamma} and reconstructed pT_{#gamma};dpT_{#gamma} (GeV)",1000,-1,1);
+  }
+  TH1F* dpT_s[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dpT_s[i] = new TH1F(Form("dpT_s[%d]", i),"difference of MCsingle pT_{e^{+}} and std reco pT_{e^{+}};dpT_{e^{+}} (GeV)",1000,-1,1);
+  }
+  TH1F* dphoT_s[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dphoT_s[i] = new TH1F(Form("dphoT_s[%d]", i),"difference of true pT_{#gamma} and std reco pT_{#gamma};dpT_{#gamma} (GeV)",1000,-1,1);
+  }
+  TH1F* dpz[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dpz[i] = new TH1F(Form("dpz[%d]", i),"difference of true pz_{e^{+}} and std reco pz_{e^{+}};pz_{e^{+}} (GeV)",1000,-1,1);
+  }
+
+  TH1F* DpT_r = new TH1F("DpT_r","difference of MCsingle pT_{#gamma} and reconstructed pT_{#gamma};dpT_{#gamma} ",1000,-1,1);
+  TH1F* DphoT_r = new TH1F("DphoT_r","difference of True pT_{#gamma} and reconstructed pT_{#gamma};dpT_{#gamma} (GeV)",1000,-1,1);
+  TH1F* DpT_s = new TH1F("DpT_s","difference of MCsingle pT_{e^{+}} and std reco pT_{e^{+}};dpT_{e^{+}}",1000,-1,1);
+  TH1F* DphoT_s = new TH1F("DphoT_s","difference of True pT_{#gamma} and std reco pT_{#gamma};dpT_{#gamma}",1000,-1,1);
+  TH1F* Dpz = new TH1F("Dpz","difference of True pz_{e^{+}} and std reco pz_{e^{+}};pz_{e^{+}}",1000,-1,1);
+
+  //======================================================
+  //                    E resolution
+  //======================================================
+  TH1F* dEmcE[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dEmcE[i] = new TH1F(Form("dEmcE[%d]", i),"difference of emcal photon E_{#gamma} and true E_{#gamma};dE_{#gamma} (GeV)",1000,-1,1);
+  }
+  TH1F* dConvE[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    dConvE[i] = new TH1F(Form("dConvE[%d]", i),"difference of converted photon E_{ee} and true E_{ee};dE_{ee} (GeV)",1000,-1,1);
+  }
+
+  TH1F* DEmcE = new TH1F("DEmcE","difference of emcal photon E_{#gamma} and true E_{#gamma};dE_{#gamma} (GeV)",1000,-1,1);
+  TH1F* DConvE = new TH1F("DConvE","difference of converted photon E_{ee} and true E_{ee};dE_{ee} (GeV)",1000,-1,1);
+  
+
+  //======================================================
+  //                Asymmetry Distribution
+  //======================================================
+  TH1F* trueAsy[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    trueAsy[i] = new TH1F(Form("trueAsy[%d]", i),"asymmetry distribution;asymmetry",100,-1,1);
+  }
+  TH1F* recoAsy[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    recoAsy[i] = new TH1F(Form("recoAsy[%d]", i),"asymmetry distribution;asymmetry",100,-1,1);
+  }
+  TH1F* TrueAsy = new TH1F("TrueAsy","asymmetry distribution;asymmetry",100,-1,1);
+  TH1F* RecoAsy = new TH1F("RecoAsy","asymmetry distribution;asymmetry",100,-1,1);
+
+  //======================================================
+  //                Mass Distribution
+  //======================================================
+  TH1F* trueMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    trueMass[i] = new TH1F(Form("trueMass[%d]", i),"m_{ee} distribution;m_{ee} (GeV)",1000,0,0.04);
+  }
+  TH1F* recoMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    recoMass[i] = new TH1F(Form("recoMass[%d]", i),"m_{ee} distribution;m_{ee} (GeV)",1000,0,0.04);
+  }
+  TH1F* stdMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    stdMass[i] = new TH1F(Form("stdMass[%d]", i),"m_{ee} distribution (corrected using #phi_{conv});m_{ee} (GeV)",1000,0,0.04);
+  }
+  TH1F* recoPionMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    recoPionMass[i] = new TH1F(Form("recoPionMass[%d]", i),"m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+  TH1F* emcPionMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    emcPionMass[i] = new TH1F(Form("emcPionMass[%d]", i),"m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+  TH1F* stdPionMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    stdPionMass[i] = new TH1F(Form("stdPionMass[%d]", i),"m_{ee#gamma} distribution (corrected using #phi_{conv});m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+  TH1F* convPionMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    convPionMass[i] = new TH1F(Form("convPionMass[%d]", i),"m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+  TH1F* convPionMass_r[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    convPionMass_r[i] = new TH1F(Form("convPionMass_r[%d]", i),"m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+  TH1F* truePionMass[ptbin] ={0};
+  for(int i = 0; i < ptbin; i++)
+  {
+    truePionMass[i] = new TH1F(Form("truePionMass[%d]", i),"m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0.06,0.22);
+  }
+
+  TH1F* TrueMass = new TH1F("TrueMass","m_{ee} distribution;m_{#gamma} (GeV)",1000,0,0.04);
+  TH1F* RecoMass = new TH1F("RecoMass","m_{ee} distribution;m_{#gamma} (GeV)",1000,0,0.04);
+  TH1F* StdMass = new TH1F("StdMass","m_{ee} distribution;m_{#gamma} (GeV)",1000,0,0.04);
+
+  // TH1F* McPionMass = new TH1F("McPionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+  TH1F* RecoPionMass = new TH1F("RecoPionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+
+  TH1F* EmcPionMass = new TH1F("EmcPionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+  TH1F* StdPionMass = new TH1F("StdPionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+  TH1F* ConvPionMass = new TH1F("ConvPionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+  TH1F* ConvPionMass_r = new TH1F("ConvPionMass_r","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+
+  TH1F* TruePionMass = new TH1F("TruePionMass","m_{ee#gamma} distribution;m_{ee#gamma} (GeV)",1000,0,0.5);
+
+  int npion = retrack->GetEntries();
+  int npair, nclust;
+  float zvtx;
+
+  int arm_p, arm_e;
+  float alpha_p, phi_p, zed_p, alpha_e, phi_e, zed_e;//hitting point on DC
+  float convptx, convpty, convptz, px0_p, py0_p, pz0_p, px0_e, py0_e, pz0_e, px0, py0, pz0;//true info
+  float px_p, py_p, pz_p, px_e, py_e, pz_e;//standard reconstruction
+  int emc_arm;
+  float emc_ecore, x, y, z, emc_prob;
+  float emc_px0, emc_py0, emc_pz0, emc_E0;
+  float conv_px0, conv_py0, conv_pz0;
+
+  float pT0_p, pT0_e;
+  float pT_pr, pT_er, pT_prr, pT_err;
+  float pT_ps, pT_es;
+  float convptT, phiT, phoT;
+  float convptT_r, phiT_r, phiT_rr;// reconstructed position
+  float E1, E1_rr;
+  
+  float ZEDCUT=4;
+  float PHIVCUT=0.1;
+
+  int ibin=0;
+
+  for (int i = 0; i < npion; ++i)
+  {
+    if(i%10 == 0) cout << "Event:  " << i << endl;
+    pion->ClearPion();
+    br->GetEntry(i);
+    npair  = pion->GetNPair();
+    nclust = pion->GetNEmcPhoton();
+    zvtx   = pion->GetZVtx();
+
+    if (npair>1) continue;// only keep one converted photon event
+
+    for (int ipair = 0; ipair < npair; ++ipair)
+    {
+      arm_p   = (pion->GetEntry(ipair)).GetArm_p();
+      arm_e   = (pion->GetEntry(ipair)).GetArm_e();
+
+      alpha_p = (pion->GetEntry(ipair)).GetAlpha_p();
+      phi_p   = (pion->GetEntry(ipair)).GetPhi_p();
+      zed_p   = (pion->GetEntry(ipair)).GetZed_p();
+      alpha_e = (pion->GetEntry(ipair)).GetAlpha_e();
+      phi_e   = (pion->GetEntry(ipair)).GetPhi_e();
+      zed_e   = (pion->GetEntry(ipair)).GetZed_e();
+
+      convptx = (pion->GetEntry(ipair)).GetConvptx();
+      convpty = (pion->GetEntry(ipair)).GetConvpty();
+      convptz = (pion->GetEntry(ipair)).GetConvptz();
+      px0_p   = (pion->GetEntry(ipair)).GetPx0_p();
+      py0_p   = (pion->GetEntry(ipair)).GetPy0_p();
+      pz0_p   = (pion->GetEntry(ipair)).GetPz0_p();
+      px0_e   = (pion->GetEntry(ipair)).GetPx0_e();
+      py0_e   = (pion->GetEntry(ipair)).GetPy0_e();
+      pz0_e   = (pion->GetEntry(ipair)).GetPz0_e();
+      px0     = (pion->GetEntry(ipair)).GetPx0();
+      py0     = (pion->GetEntry(ipair)).GetPy0();
+      pz0     = (pion->GetEntry(ipair)).GetPz0();
+
+      px_p    = (pion->GetEntry(ipair)).GetPx_p();
+      py_p    = (pion->GetEntry(ipair)).GetPy_p();
+      pz_p    = (pion->GetEntry(ipair)).GetPz_p();
+      px_e    = (pion->GetEntry(ipair)).GetPx_e();
+      py_e    = (pion->GetEntry(ipair)).GetPy_e();
+      pz_e    = (pion->GetEntry(ipair)).GetPz_e();
+
+      //======================================================
+      //             true info for conv photon
+      //======================================================
+      conv_px0 = px0;
+      conv_py0 = py0;
+      conv_pz0 = pz0;
+
+      //======================================================
+      //             true info for emc photon
+      //======================================================
+      emc_px0 = (pion->GetTrueEmcPhotonEntry(0)).GetGx();
+      emc_py0 = (pion->GetTrueEmcPhotonEntry(0)).GetGy();
+      emc_pz0 = (pion->GetTrueEmcPhotonEntry(0)).GetGz();
+      emc_E0  = (pion->GetTrueEmcPhotonEntry(0)).GetGe();
+
+      // cout<<"ith pion "<<i<<" emc "<<emc_px0<<" "<<emc_py0<<" "<<emc_pz0<<" "<<emc_E0<<" conv "<<conv_px0<<" "<<conv_py0<<" "<<conv_pz0<<" "<<sqrt(conv_px0*conv_px0+conv_py0*conv_py0+conv_pz0*conv_pz0)<<" pion "<<getPi0Mass(px0, py0, pz0, emc_px0, emc_py0, emc_pz0)<<endl;
+
+
+      //======================================================
+      //           MCsingle info for converted photon
+      //======================================================
+      convptT = TMath::Hypot(convptx, convpty);
+      phiT    = atan2(convpty,convptx);
+      pT0_p   = TMath::Hypot(px0_p,py0_p);
+      pT0_e   = TMath::Hypot(px0_e,py0_e);
+      phoT    = TMath::Hypot(px0,py0); // true photon pT
+
+      if((phoT>=0.6)&&(phoT<0.8))  ibin = 0;
+      if((phoT>=0.8)&&(phoT<1.0))  ibin = 1;
+      if((phoT>=1.0)&&(phoT<1.2))  ibin = 2;
+      if((phoT>=1.2)&&(phoT<1.4))  ibin = 3;
+      if((phoT>=1.4)&&(phoT<1.6))  ibin = 4;
+      if((phoT>=1.6)&&(phoT<1.8))  ibin = 5;
+      if((phoT>=1.8)&&(phoT<2.0))  ibin = 6;
+      if((phoT>=2.0)&&(phoT<2.5))  ibin = 7;
+      if((phoT>=2.5)&&(phoT<3.0))  ibin = 8;
+      if((phoT>=3.0)&&(phoT<3.5))  ibin = 9;
+      if((phoT>=3.5)&&(phoT<5))    ibin = 10;
+
+      //======================================================
+      //        new reconstruction for converted photon
+      //======================================================
+      convptT_r = rootFind(alpha_e, alpha_p, phi_e, phi_p);// only transverse plane
+      phiT_r    = phir(alpha_e, phi_e, TMath::Hypot(convptx, convpty));
+      phiT_rr   = phir(alpha_e, phi_e, convptT_r);
+
+      pT_pr     = fitp(alpha_p, TMath::Hypot(convptx, convpty));
+      pT_prr    = fitp(alpha_p, convptT_r);
+      pT_er     = fitp(alpha_e, TMath::Hypot(convptx, convpty));
+      pT_err    = fitp(alpha_e, convptT_r);
+
+      dconvptT->Fill(convptT_r-convptT);
+      dphiT->Fill(phiT_rr-phiT);
+      drdphi->Fill(TMath::Abs(convptT_r-convptT),TMath::Abs(phiT_rr-phiT));
+
+      //======================================================
+      //      standard reconstruction for converted photon
+      //======================================================
+      pT_ps = TMath::Hypot(px_p, py_p);
+      pT_es = TMath::Hypot(px_e, py_e);
+
+      //======================================================
+      //                 pT resolution
+      //======================================================
+      DpT_r->Fill((pT_prr-pT0_p)/pT0_p);
+      DphoT_r->Fill((getPT(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e)-TMath::Hypot(px0,py0))/TMath::Hypot(px0,py0));
+
+      DpT_s->Fill((pT_ps-pT0_p)/pT0_p);
+      DphoT_s->Fill((getPT(px_p, py_p, pz_p, px_e, py_e, pz_e)-TMath::Hypot(px0,py0))/TMath::Hypot(px0,py0));
+
+      Dpz->Fill((pz_p-pz0_p)/pz0_p);// single track
+
+      dpT_r[ibin]->Fill((pT_prr-pT0_p)/pT0_p);
+      dphoT_r[ibin]->Fill((getPT(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e)-TMath::Hypot(px0,py0))/TMath::Hypot(px0,py0));
+
+      dpT_s[ibin]->Fill((pT_ps-pT0_p)/pT0_p);
+      dphoT_s[ibin]->Fill((getPT(px_p, py_p, pz_p, px_e, py_e, pz_e)-TMath::Hypot(px0,py0))/TMath::Hypot(px0,py0));
+
+      dpz[ibin]->Fill((pz_p-pz0_p)/pz0_p);// single track
+
+
+      for (int iclust = 0; iclust < nclust; ++iclust)
+      {// based on only one converted photon
+        emc_arm   = (pion->GetEmcPhotonEntry(iclust)).GetArm();
+        emc_ecore = (pion->GetEmcPhotonEntry(iclust)).GetEcore();
+        emc_prob  = (pion->GetEmcPhotonEntry(iclust)).GetProb();
+
+        // if (arm_e!=arm_p) continue;
+        // if (emc_arm!=arm_p) continue;
+
+        // if ((pion->GetEntry(0)).GetParent()!=7) continue;
+        if (emc_ecore<0.4) continue;
+
+        x = (pion->GetEmcPhotonEntry(iclust)).GetX();
+        y = (pion->GetEmcPhotonEntry(iclust)).GetY();
+        z = (pion->GetEmcPhotonEntry(iclust)).GetZ()-zvtx;
+
+
+        //======================================================
+        //              asymmetry distribution
+        //======================================================
+        E1    = sqrt(px0*px0+py0*py0+pz0*pz0);
+        E1_rr = getConvertedPhotonE(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e);
+
+        // TrueAsy->Fill(TMath::Abs(E1-emc_ecore)/(E1+emc_ecore));
+        // RecoAsy->Fill(TMath::Abs(E1_rr-emc_ecore)/(E1_rr+emc_ecore));
+        TrueAsy->Fill((E1-emc_E0)/(E1+emc_E0));
+        RecoAsy->Fill((E1_rr-emc_ecore)/(E1_rr+emc_ecore));
+
+        trueAsy[ibin]->Fill((E1-emc_E0)/(E1+emc_E0));
+        recoAsy[ibin]->Fill((E1_rr-emc_ecore)/(E1_rr+emc_ecore));
+
+        //======================================================
+        //                   Energy resolution
+        //======================================================
+        DEmcE->Fill((emc_ecore-emc_E0)/emc_E0);
+        DConvE->Fill((E1_rr-sqrt(px0*px0+py0*py0+pz0*pz0))/sqrt(px0*px0+py0*py0+pz0*pz0));
+
+        dEmcE[ibin]->Fill((emc_ecore-emc_E0)/emc_E0);
+        dConvE[ibin]->Fill((E1_rr-sqrt(px0*px0+py0*py0+pz0*pz0))/sqrt(px0*px0+py0*py0+pz0*pz0));
+
+        if (TMath::Abs(emc_ecore-emc_E0)/emc_E0>0.2) continue;
+
+        //======================================================
+        //           converted photon mass resolution
+        //======================================================
+        TrueMass->Fill(getMass(px0_p, py0_p, pz0_p, px0_e, py0_e, pz0_e));
+        StdMass->Fill(getMass(pT_ps*cos(phiT_rr), pT_ps*sin(phiT_rr), pz_p, pT_es*cos(phiT_rr), pT_es*sin(phiT_rr), pz_e));// corrected using phiT_rr
+        RecoMass->Fill(getMass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e));
+
+        trueMass[ibin]->Fill(getMass(px0_p, py0_p, pz0_p, px0_e, py0_e, pz0_e));
+        stdMass[ibin]->Fill(getMass(pT_ps*cos(phiT_rr), pT_ps*sin(phiT_rr), pz_p, pT_es*cos(phiT_rr), pT_es*sin(phiT_rr), pz_e));// corrected using phiT_rr
+        recoMass[ibin]->Fill(getMass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e));
+
+        //======================================================
+        //               pion mass resolution
+        //======================================================
+        // McPionMass->Fill(getPi0Mass(px0_p, py0_p, pz0_p, px0_e, py0_e, pz0_e, emc_ecore*x/sqrt(x*x+y*y+z*z), emc_ecore*y/sqrt(x*x+y*y+z*z), emc_ecore*z/sqrt(x*x+y*y+z*z)));
+        RecoPionMass->Fill(getPi0Mass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e, emc_ecore*x/sqrt(x*x+y*y+z*z), emc_ecore*y/sqrt(x*x+y*y+z*z), emc_ecore*z/sqrt(x*x+y*y+z*z)));
+
+        EmcPionMass->Fill(getPi0Mass(px0, py0, pz0, emc_ecore*x/sqrt(x*x+y*y+z*z), emc_ecore*y/sqrt(x*x+y*y+z*z), emc_ecore*z/sqrt(x*x+y*y+z*z)));
+        StdPionMass->Fill(getPi0Mass(pT_ps*cos(phiT_rr), pT_ps*sin(phiT_rr), pz_p, pT_es*cos(phiT_rr), pT_es*sin(phiT_rr), pz_e, emc_px0, emc_py0, emc_pz0));// corrected using phiT_rr
+        ConvPionMass->Fill(getPi0Mass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e, emc_px0, emc_py0, emc_pz0));
+        ConvPionMass_r->Fill(getPi0Mass(pT_pr*cos(phiT_r), pT_pr*sin(phiT_r), pz_p, pT_er*cos(phiT_r), pT_er*sin(phiT_r), pz_e, emc_px0, emc_py0, emc_pz0));
+
+        TruePionMass->Fill(getPi0Mass(px0, py0, pz0, emc_px0, emc_py0, emc_pz0));
+
+        recoPionMass[ibin]->Fill(getPi0Mass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e, emc_ecore*x/sqrt(x*x+y*y+z*z), emc_ecore*y/sqrt(x*x+y*y+z*z), emc_ecore*z/sqrt(x*x+y*y+z*z)));
+
+        emcPionMass[ibin]->Fill(getPi0Mass(px0, py0, pz0, emc_ecore*x/sqrt(x*x+y*y+z*z), emc_ecore*y/sqrt(x*x+y*y+z*z), emc_ecore*z/sqrt(x*x+y*y+z*z)));
+        stdPionMass[ibin]->Fill(getPi0Mass(pT_ps*cos(phiT_rr), pT_ps*sin(phiT_rr), pz_p, pT_es*cos(phiT_rr), pT_es*sin(phiT_rr), pz_e, emc_px0, emc_py0, emc_pz0));// corrected using phiT_rr
+        convPionMass[ibin]->Fill(getPi0Mass(pT_prr*cos(phiT_rr), pT_prr*sin(phiT_rr), pz_p, pT_err*cos(phiT_rr), pT_err*sin(phiT_rr), pz_e, emc_px0, emc_py0, emc_pz0));
+        convPionMass_r[ibin]->Fill(getPi0Mass(pT_pr*cos(phiT_r), pT_pr*sin(phiT_r), pz_p, pT_er*cos(phiT_r), pT_er*sin(phiT_r), pz_e, emc_px0, emc_py0, emc_pz0));
+
+        truePionMass[ibin]->Fill(getPi0Mass(px0, py0, pz0, emc_px0, emc_py0, emc_pz0));
+      }
+    }   
+  }
+  
+      
+  TFile* f2 = new TFile("mass.root","RECREATE");
+
+  dconvptT->Write();
+  dphiT->Write();
+
+  drdphi->Write();
+
+  DpT_r->Write();
+  DphoT_r->Write();
+  DpT_s->Write();
+  DphoT_s->Write();
+  Dpz->Write();
+
+  for(int i = 0; i < ptbin; ++i) dpT_r[i]->Write(Form("dpT_r%d",i));
+  for(int i = 0; i < ptbin; ++i) dphoT_r[i]->Write(Form("dphoT_r%d",i));
+  for(int i = 0; i < ptbin; ++i) dpT_s[i]->Write(Form("dpT_s%d",i));
+  for(int i = 0; i < ptbin; ++i) dphoT_s[i]->Write(Form("dphoT_s%d",i));
+  for(int i = 0; i < ptbin; ++i) dpz[i]->Write(Form("dpz%d",i));
+
+  DEmcE->Write();
+  DConvE->Write();
+
+  for(int i = 0; i < ptbin; ++i) dEmcE[i]->Write(Form("dEmcE%d",i));
+  for(int i = 0; i < ptbin; ++i) dConvE[i]->Write(Form("dConvE%d",i));
+
+  TrueAsy->Write();
+  RecoAsy->Write();
+
+  for(int i = 0; i < ptbin; ++i) trueAsy[i]->Write(Form("trueAsy%d",i));
+  for(int i = 0; i < ptbin; ++i) recoAsy[i]->Write(Form("recoAsy%d",i));
+
+  TrueMass->Write();
+  StdMass->Write();
+  RecoMass->Write();
+
+  // McPionMass->Write();
+  RecoPionMass->Write();
+  EmcPionMass->Write();
+  StdPionMass->Write();
+  ConvPionMass->Write();
+  ConvPionMass_r->Write();
+  TruePionMass->Write();
+
+  for(int i = 0; i < ptbin; ++i) trueMass[i]->Write(Form("trueMass%d",i));
+  for(int i = 0; i < ptbin; ++i) stdMass[i]->Write(Form("stdMass%d",i));
+  for(int i = 0; i < ptbin; ++i) recoMass[i]->Write(Form("recoMass%d",i));
+  for(int i = 0; i < ptbin; ++i) recoPionMass[i]->Write(Form("recoPionMass%d",i));
+  for(int i = 0; i < ptbin; ++i) emcPionMass[i]->Write(Form("emcPionMass%d",i));
+  for(int i = 0; i < ptbin; ++i) stdPionMass[i]->Write(Form("stdPionMass%d",i));
+  for(int i = 0; i < ptbin; ++i) convPionMass[i]->Write(Form("convPionMass%d",i));
+  for(int i = 0; i < ptbin; ++i) convPionMass_r[i]->Write(Form("convPionMass_r%d",i));
+  for(int i = 0; i < ptbin; ++i) truePionMass[i]->Write(Form("truePionMass%d",i));
+
+
+  f2->Write();
+
+  f1->Close();
+  f2->Close();
+
+  delete f1;
+  delete f2;
+}
