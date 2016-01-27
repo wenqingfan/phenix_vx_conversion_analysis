@@ -57,6 +57,7 @@ class PointVal2DSorted
           for(unsigned int j=0;j<2;++j){
               if(containers[i][j]==NULL){continue;}
               if( (containers[i][j]->x_hi<X_LO) || (containers[i][j]->x_lo>X_HI) || (containers[i][j]->y_hi<Y_LO) || (containers[i][j]->y_lo>Y_HI) ){continue;}
+              cout<<"recursive append with index "<<i<<" "<<j<<endl;
               containers[i][j]->append_list( point_list, X_LO, X_HI, Y_LO, Y_HI );}}
       }
 };
@@ -73,6 +74,7 @@ class PointVal2DSortedEnd : public PointVal2DSorted
     }
     virtual void append_list( vector<PointVal2D>& point_list, float X_LO, float X_HI, float Y_LO, float Y_HI )
     {
+      cout<<"append from "<<points.size()<<" "<<points<<endl;
       for(unsigned int i=0;i<points.size();++i)
       {
         if( (points[i].x<X_LO) || (points[i].x>X_HI) || (points[i].y<Y_LO) || (points[i].y>Y_HI) ){continue;}
@@ -130,6 +132,7 @@ float fit(float alpha, float r)//r in unit of cm
 
   float r_cm = r/100.;
   vector<PointVal2D> points;
+  cout<<"making list with range "<<alpha - 0.01<<" "<<alpha + 0.01<<" "<<r_cm - 0.02<<" "<<r_cm + 0.02<<endl;
   alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.02, r_cm + 0.02 );
 
   cout<<"points.size() = "<<points.size()<<endl;
@@ -518,7 +521,7 @@ void fill_alpha_r_phi()
   {
     t->GetEntry(i);
     PointVal2D point(alpha,r,phi);
-    cout<<"inserting "<<point.x<<" "<<point.y<<" "<<point.z<<endl;
+    // cout<<"inserting "<<point.x<<" "<<point.y<<" "<<point.z<<endl;
     alpha_r_phi.insert(point);
   }
   f.Close();
