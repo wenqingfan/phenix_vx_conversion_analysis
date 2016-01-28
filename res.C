@@ -135,8 +135,8 @@ float fit(float alpha, float r)//r in unit of cm
 
   float r_cm = r/100.;
   vector<PointVal2D> points;
-  cout<<"making list with range "<<alpha - 0.01<<" "<<alpha + 0.01<<" "<<r_cm - 0.02<<" "<<r_cm + 0.02<<endl;
-  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.02, r_cm + 0.02 );
+  cout<<"making list with range "<<alpha - 0.01<<" "<<alpha + 0.01<<" "<<r_cm - 0.07<<" "<<r_cm + 0.07<<endl;
+  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.07, r_cm + 0.07 );
 
   cout<<"points.size() = "<<points.size()<<endl;
 
