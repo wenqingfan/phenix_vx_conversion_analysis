@@ -124,15 +124,12 @@ PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 30., 8 );
 
 float fit(float alpha, float r)//r in unit of cm
 {
-    // float phi;
-    // //phi = 0.009672234614882405+1.863199816951874*alpha+0.3408938176648345*alpha*alpha-0.09473221676982421*(r/100)-2.196733830137172*alpha*(r/100)+0.3518546236833466*(r/100)*(r/100);
-    // phi = (-0.000563615+1.98033*alpha+0.00722406*(r/100)-0.947033*alpha*(r/100)-0.770467*alpha*alpha-0.0128542*(r/100)*(r/100))/(1-0.377809*alpha+0.913216*(r/100)-0.848801*alpha*(r/100)-0.142*alpha*alpha+0.140344*(r/100)*(r/100));
-    // return phi;
-
   float r_cm = r/100.;
   vector<PointVal2D> points;
   alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.06, r_cm + 0.06 );
 
+  // implementing local polynomial fitting 
+  // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
 
   TMatrixD X( points.size(), 6 );
   TMatrixD y( points.size(), 1 );
@@ -213,9 +210,10 @@ float Radius(float alpha_e, float alpha_p, float phi_e, float phi_p, float r)
 
 float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 {
+  // use Newton's method with finite differences
   float tolerance = 0.001;
   float r_delta = 0.1;
-  int max_iter = 20;
+  int max_iter = 10;
 
   float r = 10.;
 
@@ -233,18 +231,10 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
     if( (r+d)<0. ){ r *= 0.5; }
     else{r += d;}
 
-
-
-
     iter += 1;
   }
 
-
-
-
-
-
-
+  return -99.;
 }
 
 float getPT(float px1, float py1, float pz1, float px2, float py2, float pz2)
@@ -706,6 +696,7 @@ void res(const char* inFile = "retrack.root")
       //        new reconstruction for converted photon
       //======================================================
       convptT_r = rootFind(alpha_e, alpha_p, phi_e, phi_p);// only transverse plane
+      if(convptT_r < 0.){continue;}
       phiT_r    = phir(alpha_e, phi_e, TMath::Hypot(convptx, convpty));
       phiT_rr   = phir(alpha_e, phi_e, convptT_r);
 
