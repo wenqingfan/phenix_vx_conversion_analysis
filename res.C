@@ -222,7 +222,7 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
   int iter = 0;
   while(iter<max_iter)
   {
-    coutMM"iter "<<iter<<": "<<"r = "<<r<<endl;
+    cout<<"iter "<<iter<<": "<<"r = "<<r<<endl;
     float f0 = Radius( alpha_e, alpha_p, phi_e, phi_p, r );
     if( TMath::Abs(f0)<tolerance ){ cout<<"return "<<r<<endl; return r;}
     float f1 = Radius( alpha_e, alpha_p, phi_e, phi_p, r+r_delta );
