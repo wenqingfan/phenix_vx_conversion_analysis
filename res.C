@@ -57,7 +57,6 @@ class PointVal2DSorted
           for(unsigned int j=0;j<2;++j){
               if(containers[i][j]==NULL){continue;}
               if( (containers[i][j]->x_hi<X_LO) || (containers[i][j]->x_lo>X_HI) || (containers[i][j]->y_hi<Y_LO) || (containers[i][j]->y_lo>Y_HI) ){continue;}
-              cout<<"recursive append with index "<<i<<" "<<j<<endl;
               containers[i][j]->append_list( point_list, X_LO, X_HI, Y_LO, Y_HI );}}
       }
 };
@@ -74,13 +73,10 @@ class PointVal2DSortedEnd : public PointVal2DSorted
     }
     virtual void append_list( vector<PointVal2D>& point_list, float X_LO, float X_HI, float Y_LO, float Y_HI )
     {
-      cout<<"append from "<<(points.size())<<" points"<<endl;
       for(unsigned int i=0;i<points.size();++i)
       {
-        cout<<(points[i].x)<<" "<<(points[i].y)<<" "<<X_LO<<" "<<X_HI<<" "<<Y_LO<<" "<<Y_HI<<endl;
 
         if( (points[i].x<X_LO) || (points[i].x>X_HI) || (points[i].y<Y_LO) || (points[i].y>Y_HI) ){continue;}
-        cout<<"appending"<<endl;
         point_list.push_back( points[i] );
       }
     }
@@ -135,10 +131,8 @@ float fit(float alpha, float r)//r in unit of cm
 
   float r_cm = r/100.;
   vector<PointVal2D> points;
-  cout<<"making list with range "<<alpha - 0.01<<" "<<alpha + 0.01<<" "<<r_cm - 0.07<<" "<<r_cm + 0.07<<endl;
-  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.07, r_cm + 0.07 );
+  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.06, r_cm + 0.06 );
 
-  cout<<"points.size() = "<<points.size()<<endl;
 
   TMatrixD X( points.size(), 6 );
   TMatrixD y( points.size(), 1 );
@@ -231,6 +225,7 @@ float Radius(float alpha_e, float alpha_p, float phi_e, float phi_p, float r)
 
 float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 {
+  cout<<"rootFind begin"<<endl;
   float ARANGE=0.6;
   float epsilon_f = 0.0001;//opening angle resolution, used for root finding
     float prev=0, now=0, middle;// in unit of cm
@@ -240,6 +235,7 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 
     if ((TMath::Abs(alpha_e)>ARANGE) || (TMath::Abs(alpha_p)>ARANGE))
     {//out of reconstruction range
+      cout<<"rootFind end"<<endl;
       return -89.0;
     }
   else
@@ -253,10 +249,12 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
       //cout<<Radius(alpha_e, alpha_p, phi_e, phi_p, s1)<<" "<<Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<<endl;
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)==0)
       {
+        cout<<"rootFind end"<<endl;
         return s1;
       }
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s2)==0)
       {
+        cout<<"rootFind end"<<endl;
         return s2;
       }
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)*Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<0)
@@ -272,6 +270,7 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 
     if (prev==now)
     {// no bracket found
+      cout<<"rootFind end"<<endl;
       return -99.0;
     }
 
@@ -287,11 +286,13 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
       //check if root is at the ends of bracket
       if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, prev))<epsilon_f)
       {
+        cout<<"rootFind end"<<endl;
         return prev;
       }
 
       if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, now))<epsilon_f)
       {
+        cout<<"rootFind end"<<endl;
         return now;
       }
 
@@ -326,6 +327,7 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
           // cout<<"middle in while"<<middle<<endl;
           // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
         }
+        cout<<"rootFind end"<<endl;
         return middle;//convert m to cm
       }
 
