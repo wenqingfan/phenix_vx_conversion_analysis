@@ -170,18 +170,6 @@ float fitp(float alpha, float r)//r in unit of cm
     return p;
 }
 
-float fittf(float alpha, float r)
-{
-  float tf, absalpha;
-    absalpha=TMath::Abs(alpha);
-    if (r<0)
-    {
-      return -9;
-    }
-  tf = (7.34066*1e-9+3.98058*1e-10*absalpha-2.41566*1e-9*(r/100)-2.17247*1e-9*absalpha*(r/100)-1.37446*1e-10*absalpha*absalpha+2.12644*1e-9*(r/100)*(r/100))/(1+0.0618078*absalpha+0.12285*(r/100)-0.346296*absalpha*(r/100)-0.419324*absalpha*absalpha+0.406774*(r/100)*(r/100));
-  return tf;
-}
-
 
 float phir(float alpha, float phiDC, float r)
 {
@@ -225,109 +213,38 @@ float Radius(float alpha_e, float alpha_p, float phi_e, float phi_p, float r)
 
 float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 {
-  float ARANGE=0.6;
-  float epsilon_f = 0.0001;//opening angle resolution, used for root finding
-    float prev=0, now=0, middle;// in unit of cm
-    float convptr_r;
-    float s1, s2, dR=99;// angle, in unit of rad
+  float tolerance = 0.001;
+  float r_delta = 0.1;
+  int max_iter = 20;
+
+  float r = 10.;
+
+  int iter = 0;
+  while(iter<max_iter)
+  {
+    coutMM"iter "<<iter<<": "<<"r = "<<r<<endl;
+    float f0 = Radius( alpha_e, alpha_p, phi_e, phi_p, r );
+    if( TMath::Abs(f0)<tolerance ){ cout<<"return "<<r<<endl; return r;}
+    float f1 = Radius( alpha_e, alpha_p, phi_e, phi_p, r+r_delta );
+    float slope = (f1-f0)/r_delta;
+    // f0 + slope*d = 0
+    // d = -f0/slope;
+    float d = -f0/slope;
+    if( (r+d)<0. ){ r *= 0.5; }
+    else{r += d;}
 
 
-    if ((TMath::Abs(alpha_e)>ARANGE) || (TMath::Abs(alpha_p)>ARANGE))
-    {//out of reconstruction range
-      return -89.0;
-    }
-  else
-  {//FindRoot, bisection
-    for (int i = 0; i < 250; ++i)
-    {
-    //assmue in 0.1cm bracket, it's monotomic!!!!!
-    //find the bracket that contain a root
-      s1 = 0.1*i;
-      s2 = 0.1*(i+1);
-      //cout<<Radius(alpha_e, alpha_p, phi_e, phi_p, s1)<<" "<<Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<<endl;
-      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)==0)
-      {
-        return s1;
-      }
-      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s2)==0)
-      {
-        return s2;
-      }
-      if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)*Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<0)
-      {//there is root
-        if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, s1)-Radius(alpha_e, alpha_p, phi_e, phi_p, s2))<dR)
-        {//better guess
-          dR = TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, s1)-Radius(alpha_e, alpha_p, phi_e, phi_p, s2));
-          prev = s1;
-          now = s2;
-        }
-      }
-    }
-
-    if (prev==now)
-    {// no bracket found
-      return -99.0;
-    }
 
 
-      middle = (prev+now)/2;
-
-      // cout<<"alpha_e"<<alpha_e<<"alpha_p"<<alpha_p<<"phi_e"<<phi_e<<"phi_p"<<phi_p<<endl;
-      // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, prev)<<endl;
-      // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, now)<<endl;
-      // cout<<fit(TMath::Abs(alpha_e), 25.0)<<" "<<fit(TMath::Abs(alpha_p), 25.0)<<endl;
-      // cout<<phir(alpha_e, phi_e, 25)<<" "<<phir(alpha_p, phi_p, 25)<<endl;
-
-      //check if root is at the ends of bracket
-      if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, prev))<epsilon_f)
-      {
-        return prev;
-      }
-
-      if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, now))<epsilon_f)
-      {
-        return now;
-      }
-
-      //root is not at the ends of bracket
-      if (Radius(alpha_e, alpha_p, phi_e, phi_p, prev)*Radius(alpha_e, alpha_p, phi_e, phi_p, now)>0)
-      {
-        cout<<"no conversion radius in bracket"<<"["<<prev<<","<<now<<"]"<<endl;
-      return -99.0;//meaning no corresponding conversion pnt
-      }
-
-      else//meaning => Radius(alpha_p, alpha_e, phi_p, phi_e, prev)*Radius(alpha_p, alpha_e, phi_p, phi_e, now)<0
-      {
-        // cout<<"there is root"<<endl;
-        // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
-        while((TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, middle))>epsilon_f) && (TMath::Abs(prev-middle)>0.1))//0.1cm=1mm
-        {
-        //cout<<"into while arg"<<endl;
-          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)<0)
-          {
-            now = middle;
-            middle = (prev+now)/2;
-          }
-          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)>0)
-          {
-            prev = middle;
-            middle = (prev+now)/2;
-          }
-          if (Radius(alpha_e, alpha_p, phi_e, phi_p, middle)*Radius(alpha_e, alpha_p, phi_e, phi_p, prev)==0)
-          {
-            break;
-          }
-          // cout<<"middle in while"<<middle<<endl;
-          // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
-        }
-        return middle;//convert m to cm
-      }
-
-      //phir_r = phir(alpha_e,phi_e,convptr_r);
-
-      // cout<<"middle"<<middle<<endl;
-      // cout<<"con"<<convptr_r<<endl;
+    iter += 1;
   }
+
+
+
+
+
+
+
 }
 
 float getPT(float px1, float py1, float pz1, float px2, float py2, float pz2)
