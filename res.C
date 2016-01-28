@@ -117,16 +117,16 @@ bool PointVal2DSorted::insert( PointVal2D const& point )
 }
 
 
-PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 30., 8 );
+PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 0.3, 8 );
 
 
 
 
 float fit(float alpha, float r)//r in unit of cm
 {
-  float r_cm = r/100.;
+  float r_m = r/100.;
   vector<PointVal2D> points;
-  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_cm - 0.06, r_cm + 0.06 );
+  alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_m - 0.06, r_m + 0.06 );
 
   // implementing local polynomial fitting 
   // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
@@ -152,7 +152,7 @@ float fit(float alpha, float r)//r in unit of cm
 
   TMatrixD beta = XtX * (Xt * y);
 
-  return ( beta(0,0) + beta(1,0)*alpha + beta(2,0)*r_cm + beta(3,0)*alpha*alpha + beta(4,0)*alpha*r_cm + beta(5,0)*r_cm*r_cm );
+  return ( beta(0,0) + beta(1,0)*alpha + beta(2,0)*r_m + beta(3,0)*alpha*alpha + beta(4,0)*alpha*r_m + beta(5,0)*r_m*r_m );
 }
 
 float fitp(float alpha, float r)//r in unit of cm
