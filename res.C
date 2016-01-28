@@ -225,7 +225,6 @@ float Radius(float alpha_e, float alpha_p, float phi_e, float phi_p, float r)
 
 float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 {
-  cout<<"rootFind begin"<<endl;
   float ARANGE=0.6;
   float epsilon_f = 0.0001;//opening angle resolution, used for root finding
     float prev=0, now=0, middle;// in unit of cm
@@ -235,7 +234,6 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 
     if ((TMath::Abs(alpha_e)>ARANGE) || (TMath::Abs(alpha_p)>ARANGE))
     {//out of reconstruction range
-      cout<<"rootFind end"<<endl;
       return -89.0;
     }
   else
@@ -249,12 +247,10 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
       //cout<<Radius(alpha_e, alpha_p, phi_e, phi_p, s1)<<" "<<Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<<endl;
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)==0)
       {
-        cout<<"rootFind end"<<endl;
         return s1;
       }
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s2)==0)
       {
-        cout<<"rootFind end"<<endl;
         return s2;
       }
       if (Radius(alpha_e, alpha_p, phi_e, phi_p, s1)*Radius(alpha_e, alpha_p, phi_e, phi_p, s2)<0)
@@ -270,7 +266,6 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
 
     if (prev==now)
     {// no bracket found
-      cout<<"rootFind end"<<endl;
       return -99.0;
     }
 
@@ -286,13 +281,11 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
       //check if root is at the ends of bracket
       if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, prev))<epsilon_f)
       {
-        cout<<"rootFind end"<<endl;
         return prev;
       }
 
       if (TMath::Abs(Radius(alpha_e, alpha_p, phi_e, phi_p, now))<epsilon_f)
       {
-        cout<<"rootFind end"<<endl;
         return now;
       }
 
@@ -327,7 +320,6 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
           // cout<<"middle in while"<<middle<<endl;
           // cout<<Radius(alpha_p, alpha_e, phi_p, phi_e, middle)<<endl;
         }
-        cout<<"rootFind end"<<endl;
         return middle;//convert m to cm
       }
 
