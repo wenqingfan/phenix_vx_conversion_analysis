@@ -117,7 +117,9 @@ bool PointVal2DSorted::insert( PointVal2D const& point )
 }
 
 
-PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 0.3, 8 );
+PointVal2DSorted alpha_r_phi( 0., 0.7, 0., 0.3, 10 );
+PointVal2DSorted alpha_r_p( 0., 0.7, 0., 0.3, 10 );
+
 
 
 
@@ -157,14 +159,37 @@ float fit(float alpha, float r)//r in unit of cm
 
 float fitp(float alpha, float r)//r in unit of cm
 {
-    float p, absalpha;
+    float r_m = r/100.;
+    float absalpha;
     absalpha=TMath::Abs(alpha);
-    if (r<0)
+    vector<PointVal2D> points;
+    alpha_r_p.append_list( points, absalpha - 0.01, absalpha + 0.01, r_m - 0.06, r_m + 0.06 );
+
+    // implementing local polynomial fitting 
+    // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
+
+    TMatrixD X( points.size(), 6 );
+    TMatrixD y( points.size(), 1 );
+    for(unsigned int i=0;i<points.size();i+=1)
     {
-      return -9;
+      y(i,0) = points[i].z;
+      // p0 + p1*x + p2*y + p3*x^2 + p4*xy + p5*y^2
+      X(i,0) = 1.;
+      X(i,1) = points[i].x;
+      X(i,2) = points[i].y;
+      X(i,3) = points[i].x*points[i].x;
+      X(i,4) = points[i].x*points[i].y;
+      X(i,5) = points[i].y*points[i].y;
     }
-    p = (159827-17737.8*absalpha+28681.6*(r/100)+3088.24*absalpha*(r/100)+26132.8*absalpha*absalpha-96682*(r/100)*(r/100))/(1+1.54242*1000000*absalpha-17.7326*(r/100)+276875*absalpha*(r/100)-170012*absalpha*absalpha+58.7012*(r/100)*(r/100));
-    return p;
+    TMatrixD Xt( 6, points.size() );
+    Xt.Transpose(X);
+
+    TMatrixD XtX = Xt * X;
+    XtX.Invert();
+
+    TMatrixD beta = XtX * (Xt * y);
+
+    return ( beta(0,0) + beta(1,0)*absalpha + beta(2,0)*r_m + beta(3,0)*absalpha*absalpha + beta(4,0)*absalpha*r_m + beta(5,0)*r_m*r_m );
 }
 
 
@@ -220,9 +245,8 @@ float rootFind(float alpha_e, float alpha_p, float phi_e, float phi_p)
   int iter = 0;
   while(iter<max_iter)
   {
-    cout<<"iter "<<iter<<": "<<"r = "<<r<<endl;
     float f0 = Radius( alpha_e, alpha_p, phi_e, phi_p, r );
-    if( TMath::Abs(f0)<tolerance ){ cout<<"return "<<r<<endl; return r;}
+    if( TMath::Abs(f0)<tolerance ){return r;}
     float f1 = Radius( alpha_e, alpha_p, phi_e, phi_p, r+r_delta );
     float slope = (f1-f0)/r_delta;
     // f0 + slope*d = 0
@@ -412,21 +436,23 @@ float getConvertedPhotonE(float px1, float py1, float pz1, float px2, float py2,
   return pair.E();
 }
 
-void fill_alpha_r_phi()
+void fill_alpha_r()
 {
   TFile f("alpha_p_r_phi.root");
   TNtuple* t=0;
   f.GetObject("alpha_p_r_phi", t);
-  float alpha,r,phi;
+  float alpha,p,r,phi;
   t->SetBranchAddress("alpha",&alpha);
   t->SetBranchAddress("r",&r);
+  t->SetBranchAddress("p",&p);
   t->SetBranchAddress("phi",&phi);
   for(int i=0;i<t->GetEntries();i+=1)
   {
     t->GetEntry(i);
     PointVal2D point(alpha,r,phi);
-    // cout<<"inserting "<<point.x<<" "<<point.y<<" "<<point.z<<endl;
     alpha_r_phi.insert(point);
+    PointVal2D point2(alpha,r,p);
+    alpha_r_p.insert(point2);
   }
   f.Close();
 }
@@ -434,7 +460,7 @@ void fill_alpha_r_phi()
 void res(const char* inFile = "retrack.root")
 {
   gSystem->Load("libMyPion");
-  fill_alpha_r_phi();
+  fill_alpha_r();
   TFile* f1 = new TFile(inFile,"READ");
   if(!(f1)){
         cout<<"can't find input file..."<<endl;
