@@ -163,9 +163,7 @@ float fitp(float alpha, float r)//r in unit of cm
     float absalpha;
     absalpha=TMath::Abs(alpha);
     vector<PointVal2D> points;
-    cout<<"appending from "<<(absalpha - 0.01)<<" "<<(absalpha + 0.01)<<" "<<(r_m - 0.06)<<" "<<(r_m + 0.06)<<endl;
     alpha_r_p.append_list( points, absalpha - 0.01, absalpha + 0.01, r_m - 0.06, r_m + 0.06 );
-    cout<<"npoints = "<<(points.size())<<endl<<endl;
 
     // implementing local polynomial fitting 
     // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
