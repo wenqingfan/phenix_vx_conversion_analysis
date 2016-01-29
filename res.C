@@ -129,6 +129,7 @@ float fit(float alpha, float r)//r in unit of cm
   float r_m = r/100.;
   vector<PointVal2D> points;
   alpha_r_phi.append_list( points, alpha - 0.01, alpha + 0.01, r_m - 0.06, r_m + 0.06 );
+  if(points.size()<10){return 0.;}
 
   // implementing local polynomial fitting 
   // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
@@ -164,6 +165,7 @@ float fitp(float alpha, float r)//r in unit of cm
     absalpha=TMath::Abs(alpha);
     vector<PointVal2D> points;
     alpha_r_p.append_list( points, absalpha - 0.01, absalpha + 0.01, r_m - 0.06, r_m + 0.06 );
+    if(points.size()<10){return 0.;}
 
     // implementing local polynomial fitting 
     // notation the same as in https://en.wikipedia.org/wiki/Linear_least_squares_(mathematics)
