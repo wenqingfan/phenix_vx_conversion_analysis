@@ -724,7 +724,7 @@ void res(const char* inFile = "retrack.root")
       //        new reconstruction for converted photon
       //======================================================
       convptT_r = rootFind(alpha_e, alpha_p, phi_e, phi_p);// only transverse plane
-      if(convptT_r < 0.){continue;}
+      if((convptT_r < 0.) || (convptT_r > 30.)){continue;}
       phiT_r    = phir(alpha_e, phi_e, TMath::Hypot(convptx, convpty));
       phiT_rr   = phir(alpha_e, phi_e, convptT_r);
 
