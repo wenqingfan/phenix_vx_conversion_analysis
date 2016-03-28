@@ -1,0 +1,9 @@
+// configure file for conversion photon
+// (radius, phi, theta) is the conversion position in spherical coord
+// ptot is the total momentum of the conversion photon
+// please do not change the sequence and units
+
+radius(cm) 20.0
+phi(rad) 0.5
+theta(rad) 0.2
+ptot(GeV) 1.6
