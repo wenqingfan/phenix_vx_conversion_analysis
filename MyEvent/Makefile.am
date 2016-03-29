@@ -3,19 +3,19 @@ AUTOMAKE_OPTIONS = foreign
 INCLUDES = -I$(includedir) -I$(OFFLINE_MAIN)/include
 
 lib_LTLIBRARIES = \
-libMyEvent.la
+libPhotonConversionAnalysisEvent.la
 
 noinst_HEADERS = \
 MyEventLinkDef.h
 
-include_HEADERS = \
+pkginclude_HEADERS = \
 MyEvent.h
 
-libMyEvent_la_SOURCES = \
+libPhotonConversionAnalysisEvent_la_SOURCES = \
 MyEvent.C \
 MyEvent_Dict.C
 
-libMyEvent_la_LIBADD = \
+libPhotonConversionAnalysisEvent_la_LIBADD = \
 $(ROOT_LIBS)
 
 # Rule for generating CINT dictionaries from class headers.

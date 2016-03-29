@@ -1,6 +1,6 @@
 AC_INIT(configure.in)
 
-AM_INIT_AUTOMAKE(myevent, 1.00)
+AM_INIT_AUTOMAKE(photon_conversion_analysis, 1.00)
 
 AC_PROG_CXX(CC g++)
 AC_ENABLE_STATIC(no)
