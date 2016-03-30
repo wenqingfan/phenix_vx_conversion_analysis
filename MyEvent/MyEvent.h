@@ -235,7 +235,6 @@ namespace PhotonConversionAnalysis
 
       ClassDef(MyCluster,1)  // A cluster segment
    };
-}
 
    class MyEvent : public TObject
    {
@@ -248,7 +247,6 @@ namespace PhotonConversionAnalysis
       std::vector<MyTrack> TrackList; 
       std::vector<MyPair> PairList;
       std::vector<MyCluster> ClusterList;
-
 
    public:
       MyEvent()
@@ -285,7 +283,7 @@ namespace PhotonConversionAnalysis
 
       ClassDef(MyEvent,1)  //MyEvent structure
    };
-} 
+}
 
 #endif /*__MYEVENT_H__*/
 

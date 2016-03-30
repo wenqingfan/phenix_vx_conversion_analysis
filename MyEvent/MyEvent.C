@@ -10,9 +10,11 @@ ClassImp(PhotonConversionAnalysis::MyEvent)
 ClassImp(PhotonConversionAnalysis::MyTrack)
 ClassImp(PhotonConversionAnalysis::MyCluster)
 
+using namespace PhotonConversionAnalysis;
+
 namespace PhotonConversionAnalysis
 {
-	void PhotonConversionAnalysis::MyEvent::ClearEvent()
+	void MyEvent::ClearEvent()
 	{
 	   TrackList.clear();
 	   ClusterList.clear();
