@@ -79,7 +79,7 @@ namespace PhotonConversionAnalysis
          crkphi = -999;
          crkz = -999;
       };
-      ~MyTrack() {  };
+      virtual ~MyTrack() {  };
 
       int      GetArm() const { return arm; };
       float    GetPx() const { return px; };
@@ -160,7 +160,7 @@ namespace PhotonConversionAnalysis
          theta_p = -999;
          r_pair = -999;
       };
-      ~MyPair() {  };
+      virtual ~MyPair() {  };
 
       float GetPhiElectron() const { return phi_e; }
       float GetPhiPositron() const { return phi_p; }
@@ -209,7 +209,7 @@ namespace PhotonConversionAnalysis
         emctrkdz = -999; 
         emctrkdphi = -999;
       };
-      ~MyCluster() {  };
+      virtual ~MyCluster() {  };
 
       int      GetArm() const { return arm; };
       int      GetID() const { return id; };
@@ -244,9 +244,9 @@ namespace PhotonConversionAnalysis
       float        zvertex;
       float        centrality;
 
-      std::vector<MyTrack> TrackList; 
-      std::vector<MyPair> PairList;
-      std::vector<MyCluster> ClusterList;
+      std::vector<PhotonConversionAnalysis::MyTrack> TrackList; 
+      std::vector<PhotonConversionAnalysis::MyPair> PairList;
+      std::vector<PhotonConversionAnalysis::MyCluster> ClusterList;
 
    public:
       MyEvent()
@@ -255,7 +255,7 @@ namespace PhotonConversionAnalysis
          zvertex    = -999;
          centrality = -999;
       };
-      ~MyEvent();
+      virtual ~MyEvent();
 
       void       ClearEvent();
       
@@ -278,8 +278,8 @@ namespace PhotonConversionAnalysis
       MyTrack&   GetEntry(int i) { return TrackList[i]; };
       MyCluster& GetClusterEntry(int i) { return ClusterList[i]; };
 
-      std::vector<MyTrack> GetTracks() { return TrackList; };
-      std::vector<MyCluster> GetClusters() { return ClusterList; };
+      std::vector<PhotonConversionAnalysis::MyTrack> GetTracks() { return TrackList; };
+      std::vector<PhotonConversionAnalysis::MyCluster> GetClusters() { return ClusterList; };
 
       ClassDef(MyEvent,1)  //MyEvent structure
    };
