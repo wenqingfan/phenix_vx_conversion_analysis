@@ -1,15 +1,18 @@
 #include "Reconstruction.h"
-#include "MyEvent.h"
+#include "photon_conversion_analysis/MyEvent.h"
 #include "TFile.h"
 #include "TNtuple.h"
 #include "TMatrixD.h"
+#include <iostream>
 
 using namespace std;
 
+namespace PhotonConversionAnalysis
+{
 
 struct PointValue_3x3
 {
-float x,y,z;// independent variables
+	float x,y,z;// independent variables
 	float dep[3];// dependent variables
 	PointValue_3x3(float X, float Y, float Z, float A, float B, float C) : x(X), y(Y), z(Z)
 	{
@@ -138,7 +141,7 @@ class Reconstruction::impl
 			for(int i=0;i<t->GetEntries();i+=1)
 			{
 				 t->GetEntry(i);
-				 PointValue_3x3 point(alpha,r,z, phi,p,theta);
+				 PointValue_3x3 point(TMath::Abs(alpha),r,TMath::Abs(z), phi,p,theta);
 				 alpha_r_z.insert(point);
 			}
 			f.Close();
@@ -172,6 +175,15 @@ static float lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, Poin
 {
 	vector<PointValue_3x3> points;
 	alpha_r_z.append_list( points, alpha - lookup_alpha_delta, alpha + lookup_alpha_delta, r - lookup_r_delta, r + lookup_r_delta, z_DC_m_z_ver - lookup_z_delta, z_DC_m_z_ver + lookup_z_delta );
+
+	if( points.size() < 10 )
+	{
+		cout<<"too few points : "<<points.size()<<endl;
+		cout<<"alpha : "<<alpha - lookup_alpha_delta<<" "<<alpha + lookup_alpha_delta<<endl;
+		cout<<"r : "<<r - lookup_r_delta<<" "<<r + lookup_r_delta<<endl;
+		cout<<"z : "<<z_DC_m_z_ver - lookup_z_delta<<" "<<z_DC_m_z_ver + lookup_z_delta<<endl;
+		return -9999.;
+	}
 
 	// p0 + p1*x + p2*y + p3*z + p4*x^2 + p5*xy + p6*xz + p7*y^2 + p8*yz + p9*z^2
 
@@ -269,7 +281,7 @@ static float find_intersection( float alpha_e, float alpha_p, float phi_e, float
 	while(iter<max_iter)
 	{
 		float f0 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
-		if( TMath::Abs(f0)<tolerance ){return r;}
+		if( TMath::Abs(f0)<tolerance ){if(r<0){r=0.;}return r;}
 		float f1 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r+r_delta, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
 		float slope = (f1-f0)/r_delta;
 		// f0 + slope*d = 0
@@ -280,9 +292,13 @@ static float find_intersection( float alpha_e, float alpha_p, float phi_e, float
 
 		iter += 1;
 
-		if( r < 0. ){r = 0.;}
+		if( r < 0. )
+		{
+			r = 0.;
+			if( TMath::Abs(f0)<(3.*tolerance) ){return r;}
+		}
 	}
-
+	if(iter >= max_iter){r = -9999.;}
 	return r;
 }
 
@@ -318,4 +334,6 @@ TVector3 Reconstruction::findMomentum(MyTrack* trk, float r, float phi_conv, flo
 	return vec;
 }
 
+
+}
 

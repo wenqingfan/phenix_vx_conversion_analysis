@@ -5,6 +5,9 @@
 
 #include "TVector3.h"
 
+namespace PhotonConversionAnalysis
+{
+
 class MyTrack;
 class MyPair;
 
@@ -21,7 +24,11 @@ public:
 	private:
 		class impl;
 		impl* pimpl;
+		Reconstruction();
+		Reconstruction(Reconstruction const&);
  };
+
+}
 
 #endif /*__RECONSTRUCTION_H__*/
 
