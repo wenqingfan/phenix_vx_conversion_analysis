@@ -255,7 +255,7 @@ namespace PhotonConversionAnalysis
          zvertex    = -999;
          centrality = -999;
       };
-      virtual ~MyEvent();
+      virtual ~MyEvent() {};
 
       void       ClearEvent();
       
