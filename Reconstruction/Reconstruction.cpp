@@ -281,7 +281,7 @@ static float find_intersection( float alpha_e, float alpha_p, float phi_e, float
 	while(iter<max_iter)
 	{
 		float f0 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
-		if( TMath::Abs(f0)<tolerance ){if(r<0){r=0.;}return r;}
+		if( TMath::Abs(f0)<tolerance && iter>0 ){if(r<0){r=0.;}return r;}
 		float f1 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r+r_delta, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
 		float slope = (f1-f0)/r_delta;
 		// f0 + slope*d = 0
@@ -298,7 +298,7 @@ static float find_intersection( float alpha_e, float alpha_p, float phi_e, float
 			if( TMath::Abs(f0)<(3.*tolerance) ){return r;}
 		}
 	}
-	if(iter >= max_iter){r = -9999.;}
+	if(iter >= max_iter){r = -r;}
 	return r;
 }
 
