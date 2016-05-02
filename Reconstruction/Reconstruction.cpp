@@ -163,7 +163,7 @@ Reconstruction::~Reconstruction()
 
 
 
-static const float max_r = 26.;
+static const float max_r = 30.;
 static const float lookup_alpha_delta = 0.01;
 static const float lookup_r_delta = 2.0;
 static const float lookup_z_delta = 4.0;
