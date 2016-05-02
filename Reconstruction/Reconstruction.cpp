@@ -308,14 +308,14 @@ void Reconstruction::findIntersection(MyTrack const* trk1, MyTrack const* trk2, 
 	float r = find_intersection( trk1->GetAlpha(), trk2->GetAlpha(), trk1->GetPhiDC(), trk2->GetPhiDC(), trk1->GetZDC() - zvertex, trk2->GetZDC() - zvertex, pimpl->alpha_r_z );
 	pair->SetRPair( r );
 
-	pair->SetPhiElectron( project_phi( trk1->GetAlpha(), trk1->GetPhiDC(), r, TMath::Abs(trk1->GetZDC() - zvertex), pimpl->alpha_r_z ) );
-	pair->SetPhiPositron( project_phi( trk2->GetAlpha(), trk2->GetPhiDC(), r, TMath::Abs(trk2->GetZDC() - zvertex), pimpl->alpha_r_z ) );
+	pair->SetPhiElectron( project_phi( trk1->GetAlpha(), trk1->GetPhiDC(), fabs(r), TMath::Abs(trk1->GetZDC() - zvertex), pimpl->alpha_r_z ) );
+	pair->SetPhiPositron( project_phi( trk2->GetAlpha(), trk2->GetPhiDC(), fabs(r), TMath::Abs(trk2->GetZDC() - zvertex), pimpl->alpha_r_z ) );
 
-	float theta_e = lookup_fit( TMath::Abs(trk1->GetAlpha()), r, TMath::Abs(trk1->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
+	float theta_e = lookup_fit( TMath::Abs(trk1->GetAlpha()), fabs(r), TMath::Abs(trk1->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
 	if( trk1->GetZDC() < zvertex ){theta_e = TMath::Pi() - theta_e; }
 	pair->SetThetaElectron( theta_e );
 
-	float theta_p = lookup_fit( TMath::Abs(trk2->GetAlpha()), r, TMath::Abs(trk2->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
+	float theta_p = lookup_fit( TMath::Abs(trk2->GetAlpha()), fabs(r), TMath::Abs(trk2->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
 	if( trk2->GetZDC() < zvertex ){theta_p = TMath::Pi() - theta_p; }
 	pair->SetThetaPositron( theta_p );
 }
