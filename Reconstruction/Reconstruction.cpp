@@ -1,9 +1,10 @@
 #include "Reconstruction.h"
-#include "photon_conversion_analysis/MyEvent.h"
-#include "TFile.h"
-#include "TNtuple.h"
-#include "TMatrixD.h"
+#include "MyEvent.h"
+#include <TFile.h>
+#include <TNtuple.h>
+#include <TMatrixD.h>
 #include <iostream>
+#include <TMath.h>
 
 using namespace std;
 
@@ -141,7 +142,7 @@ class Reconstruction::impl
 			for(int i=0;i<t->GetEntries();i+=1)
 			{
 				 t->GetEntry(i);
-				 PointValue_3x3 point(TMath::Abs(alpha),r,TMath::Abs(z), phi,p,theta);
+				 PointValue_3x3 point(TMath::Abs(alpha), r, TMath::Abs(z), TMath::Abs(phi), p, TMath::Abs(theta));
 				 alpha_r_z.insert(point);
 			}
 			f.Close();
@@ -162,7 +163,6 @@ Reconstruction::~Reconstruction()
 
 
 
-
 static const float max_r = 30.;
 static const float lookup_alpha_delta = 0.01;
 static const float lookup_r_delta = 2.0;
@@ -171,9 +171,18 @@ static const float lookup_z_delta = 4.0;
 // 0 <--> phi
 // 1 <--> p
 // 2 <--> theta
-static float lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, PointVal3x3Sorted& alpha_r_z )
+static bool lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, PointVal3x3Sorted& alpha_r_z, float& lookup_ind )
 {
 	vector<PointValue_3x3> points;
+
+	if ( alpha<0 || r<0 || z_DC_m_z_ver<0 )
+	{
+		cout<<"input error!!!"<<endl;
+		cout<<"lookup table contain only e- entries, please convert e+ to e- before fitting with lookup table"<<endl;
+		lookup_ind = -9999;
+		return 0;
+	}
+
 	alpha_r_z.append_list( points, alpha - lookup_alpha_delta, alpha + lookup_alpha_delta, r - lookup_r_delta, r + lookup_r_delta, z_DC_m_z_ver - lookup_z_delta, z_DC_m_z_ver + lookup_z_delta );
 
 	if( points.size() < 10 )
@@ -182,7 +191,9 @@ static float lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, Poin
 		cout<<"alpha : "<<alpha - lookup_alpha_delta<<" "<<alpha + lookup_alpha_delta<<endl;
 		cout<<"r : "<<r - lookup_r_delta<<" "<<r + lookup_r_delta<<endl;
 		cout<<"z : "<<z_DC_m_z_ver - lookup_z_delta<<" "<<z_DC_m_z_ver + lookup_z_delta<<endl;
-		return -9999.;
+
+		lookup_ind = -9999.;
+		return 0;  // lookup failed
 	}
 
 	// p0 + p1*x + p2*y + p3*z + p4*x^2 + p5*xy + p6*xz + p7*y^2 + p8*yz + p9*z^2
@@ -224,109 +235,183 @@ static float lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, Poin
 	retval += beta(8,0)*r*z_DC_m_z_ver;
 	retval += beta(9,0)*z_DC_m_z_ver*z_DC_m_z_ver;
 
-	return retval;
+	lookup_ind = retval;
+
+	return 1;
 }
 
 
-static float project_phi( float alpha, float phiDC, float r, float z_DC_m_z_ver, PointVal3x3Sorted& alpha_r_z )
+static bool project_phi( float alpha, float phiDC, float r, float z_DC_m_z_ver, PointVal3x3Sorted& alpha_r_z, float& phi_r )
 {
 	//DC coord sys: phi -0.5Pi~1.5Pi
-	float absalpha, phirDC;
-	absalpha=TMath::Abs(alpha);
-	if ((r<0)||(r>max_r))
-	{
-		return TMath::Pi()/2;
-	}
+	if ( (r<0) || (r>max_r) ) { phi_r=-9999.; return 0; }
 
-	if (alpha>0)//electron!
-	{
-		phirDC = phiDC + lookup_fit(absalpha, r, TMath::Abs(z_DC_m_z_ver), 0, alpha_r_z);
-	}
-	else//positron!
-	{
-		phirDC = phiDC - lookup_fit(absalpha, r, TMath::Abs(z_DC_m_z_ver), 0, alpha_r_z);
-	}
-	if (phirDC>1.5*TMath::Pi())
-	{
-		phirDC = phirDC-TMath::Pi();
-	}
-	if (phirDC<-0.5*TMath::Pi())
-	{
-		phirDC = phirDC+2*TMath::Pi();
-	}
-	return phirDC;
-}
-
-
-static float delta_phi( float alpha_e, float alpha_p, float phi_e, float phi_p, float r, float z_DC_m_z_ver_e, float z_DC_m_z_ver_p, PointVal3x3Sorted& alpha_r_z )
-{
-	float fi_e, fi_p, dfi;
-
-	fi_e = project_phi(alpha_e, phi_e, r, z_DC_m_z_ver_e, alpha_r_z);
-	fi_p = project_phi(alpha_p, phi_p, r, z_DC_m_z_ver_p, alpha_r_z);
-	dfi = fi_p-fi_e;
-
-	return dfi;
-}
-
-static float find_intersection( float alpha_e, float alpha_p, float phi_e, float phi_p, float z_DC_m_z_ver_e, float z_DC_m_z_ver_p, PointVal3x3Sorted& alpha_r_z )
-{
-	float tolerance = 0.001;
-	float r_delta = 0.01;
-	int max_iter = 20;
-
-	float r = 10.;
-
-	int iter = 0;
-	while(iter<max_iter)
-	{
-		float f0 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
-		if( TMath::Abs(f0)<tolerance && iter>0 ){if(r<0){r=0.;}return r;}
-		float f1 = delta_phi( alpha_e, alpha_p, phi_e, phi_p, r+r_delta, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z );
-		float slope = (f1-f0)/r_delta;
-		// f0 + slope*d = 0
-		// d = -f0/slope;
-		float d = -f0/slope;
-		if( (r+d)<0. ){ r *= 0.5; }
-		else{r += d;}
-
-		iter += 1;
-
-		if( r < 0. )
+	float lookup_phi = 0;
+	if ( !lookup_fit(TMath::Abs(alpha), r, TMath::Abs(z_DC_m_z_ver), 0, alpha_r_z, lookup_phi) ) { phi_r=-9999.; return 0; }
+	
+	if ( alpha>0 )
+	{ // electron!
+		if ( lookup_phi<0 )
 		{
-			r = 0.;
-			if( TMath::Abs(f0)<(3.*tolerance) ){return r;}
-		}
+			cout<<"error!!! phi_conv-phi_DC can't be negative for electron using ++ field"<<endl;
+			phi_r = -9999.;
+			return 0;
+		} 	
 	}
-	if(iter >= max_iter){r = -r;}
-	return r;
+	else 
+	{ // positron!
+		lookup_phi = - lookup_phi;
+		if ( lookup_phi>0 )
+		{
+			cout<<"error!!! phi_conv-phi_DC can't be positive for positron using ++ field"<<endl;
+			phi_r = -9999.;
+			return 0;
+		} 
+	}
+
+	phi_r = phiDC + lookup_phi;
+	// periodic boundary, to ensure phi_r from [-0.5pi, 1.5pi]
+	if (phi_r>1.5*TMath::Pi())  phi_r = phi_r-TMath::Pi();
+	if (phi_r<-0.5*TMath::Pi()) phi_r = phi_r+2*TMath::Pi();
+	// else already in range, phi_r = phi_r
+	return 1;
+}
+
+static bool project_theta( float alpha, float r, float z_DC_m_z_ver, PointVal3x3Sorted& alpha_r_z, float& theta_r )
+{
+	//DC coord sys: phi -0.5Pi~1.5Pi
+	if ( (r<0) || (r>max_r) ) { theta_r=-9999.; return 0; }
+
+	float lookup_theta = 0;
+	if ( !lookup_fit(TMath::Abs(alpha), r, TMath::Abs(z_DC_m_z_ver), 2, alpha_r_z, lookup_theta) ) { theta_r = -9999.; return 0; }
+	// cout<<"TMath::Abs(z_DC_m_z_ver) "<<TMath::Abs(z_DC_m_z_ver)<<" lookup_theta "<<lookup_theta<<endl;
+
+	if ( lookup_theta<0 )
+	{
+		cout<<"error!!! there should be no negative theta_conv from lookup table"<<endl;
+		theta_r = -9999.;
+		return 0;
+	} 
+	if ( z_DC_m_z_ver>0 ) theta_r = lookup_theta; // top half
+	if ( z_DC_m_z_ver<0 ) theta_r = TMath::Pi() - lookup_theta; // bottom half
+	return 1;
+}
+
+static bool delta_phi( float alpha_e, float alpha_p, float phi_e, float phi_p, float r, float z_DC_m_z_ver_e, float z_DC_m_z_ver_p, PointVal3x3Sorted& alpha_r_z, float& dphi )
+{
+	float phir_e, phir_p;
+	if ( !project_phi(alpha_e, phi_e, r, z_DC_m_z_ver_e, alpha_r_z, phir_e) || !project_phi(alpha_p, phi_p, r, z_DC_m_z_ver_p, alpha_r_z, phir_p) ) { dphi = -9999.; return 0; }
+
+	dphi = phir_p - phir_e;
+	// the dphi we use here should alway be |dphi|<=pi
+	if ( dphi>TMath::Pi() )  dphi = 2*TMath::Pi()-dphi; // 1.3pi->0.7pi
+	if ( dphi<-TMath::Pi() ) dphi = -2*TMath::Pi()-dphi; // -1.3pi->-0.7pi
+	return 1;
+}
+
+static bool find_rconv( float alpha_e, float alpha_p, float phi_e, float phi_p, float z_DC_m_z_ver_e, float z_DC_m_z_ver_p, PointVal3x3Sorted& alpha_r_z, float& r_conv )
+{ // assumption: delta_phi(r) should be monotomic increase within [0, max_r]
+  // hence |delta_phi(r)| should be unimodal
+  // use godel section search to find the minimum of |delta_phi(r)| within range [0, max_r]
+	double a = 0, b= max_r;
+	double k = (sqrt(5.) - 1.) / 2.;
+	double xL = b - k * (b - a);
+	double xR = a + k * (b - a);
+	double EPSILON = 0.001;
+	int iter = 0, max_iter = 50;
+
+	while ( fabs(b-a) > EPSILON*(fabs(xR)+fabs(xL)) )
+	{
+		if ( iter>max_iter ) { cout<<"nothing found within interation!!!"<<endl; r_conv = -9999.; return 0; }
+
+		float dphi_xR, dphi_xL;
+		if ( !delta_phi( alpha_e, alpha_p, phi_e, phi_p, xR, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi_xR ) )
+		{ // if delta_phi in xR, [xR, b] will be the new searching range
+			a = xR;
+	      	xL = b - k * (b - a);
+	      	xR = a + k * (b - a);
+	      	++iter;
+	      	continue;
+		}
+		if ( !delta_phi( alpha_e, alpha_p, phi_e, phi_p, xL, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi_xL ) )
+		{ // if delta_phi in xL, [xL, b] will be the new searching range, xR will be the new xL
+			a = xL;
+	      	xL = xR;
+	      	xR = a + k * (b - a);
+	      	++iter;
+	      	continue;
+		}
+	  	if( TMath::Abs(dphi_xL) < TMath::Abs(dphi_xR) )	
+	    { // find minimum of |dphi|
+	      	b = xR;
+	      	xR = xL;
+	      	xL = b - k*(b - a);
+	      	++iter;
+	    }
+	    else
+	    {
+	      	a = xL;
+	      	xL = xR;
+	      	xR = a + k * (b - a);
+	      	++iter;
+	    }
+	}
+
+	r_conv = (a + b) / 2.;
+	float dphi;
+	delta_phi( alpha_e, alpha_p, phi_e, phi_p, r_conv, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi );
+	cout<<"r_conv "<<r_conv<<" delta_phi "<<dphi<<endl;
+
+	return 1;
+
+	// float r = 0, dphi = -9999.;
+	// for (int i = 0; i < 50; ++i)
+	// {
+	// 	r = 0.5*i;
+	// 	if( !delta_phi( alpha_e, alpha_p, phi_e, phi_p, r, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi ) ) continue;
+	// 	cout<<"r "<<r<<" delta phi "<<dphi<<endl;
+	// }
+	// if ( r<0 || r>max_r ) { r_conv = -9999.; return 0; }
+
+	// r_conv = r;
+	// return 1;
 }
 
 
-void Reconstruction::findIntersection(MyTrack const* trk1, MyTrack const* trk2, MyPair* pair, float zvertex)
+void Reconstruction::findIntersection(MyTrack* trk1, MyTrack* trk2, MyPair* pair, float zvertex)
 {
-	float r = find_intersection( trk1->GetAlpha(), trk2->GetAlpha(), trk1->GetPhiDC(), trk2->GetPhiDC(), trk1->GetZDC() - zvertex, trk2->GetZDC() - zvertex, pimpl->alpha_r_z );
-	pair->SetRPair( r );
+	MyTrack* trk_e = NULL;
+	MyTrack* trk_p = NULL;
 
-	pair->SetPhiElectron( project_phi( trk1->GetAlpha(), trk1->GetPhiDC(), fabs(r), TMath::Abs(trk1->GetZDC() - zvertex), pimpl->alpha_r_z ) );
-	pair->SetPhiPositron( project_phi( trk2->GetAlpha(), trk2->GetPhiDC(), fabs(r), TMath::Abs(trk2->GetZDC() - zvertex), pimpl->alpha_r_z ) );
+	if ( ( trk1->GetAlpha() )*( trk2->GetAlpha() )>0 ) { cout<<"likesign pair!!!"<<endl; return; }
+	if ( trk1->GetAlpha()>0 && trk2->GetAlpha()<0) { trk_e = trk1; trk_p = trk2; }
+	if ( trk1->GetAlpha()<0 && trk2->GetAlpha()>0) { trk_e = trk2; trk_p = trk1; }
 
-	float theta_e = lookup_fit( TMath::Abs(trk1->GetAlpha()), fabs(r), TMath::Abs(trk1->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
-	if( trk1->GetZDC() < zvertex ){theta_e = TMath::Pi() - theta_e; }
-	pair->SetThetaElectron( theta_e );
+	float r_conv;
+	find_rconv( trk_e->GetAlpha(), trk_p->GetAlpha(), trk_e->GetPhiDC(), trk_p->GetPhiDC(), trk_e->GetZDC() - zvertex, trk_p->GetZDC() - zvertex, pimpl->alpha_r_z, r_conv );
+	pair->SetRPair( r_conv );
+	
+	float phi_conv_e, phi_conv_p;
+	project_phi( trk_e->GetAlpha(), trk_e->GetPhiDC(), r_conv, trk_e->GetZDC() - zvertex, pimpl->alpha_r_z, phi_conv_e);
+	project_phi( trk_p->GetAlpha(), trk_p->GetPhiDC(), r_conv, trk_p->GetZDC() - zvertex, pimpl->alpha_r_z, phi_conv_p );
+	pair->SetPhiElectron( phi_conv_e );
+	pair->SetPhiPositron( phi_conv_p );
 
-	float theta_p = lookup_fit( TMath::Abs(trk2->GetAlpha()), fabs(r), TMath::Abs(trk2->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
-	if( trk2->GetZDC() < zvertex ){theta_p = TMath::Pi() - theta_p; }
-	pair->SetThetaPositron( theta_p );
+	float theta_conv_e, theta_conv_p;
+	project_theta( trk_e->GetAlpha(), r_conv, trk_e->GetZDC() - zvertex, pimpl->alpha_r_z, theta_conv_e );
+	project_theta( trk_p->GetAlpha(), r_conv, trk_p->GetZDC() - zvertex, pimpl->alpha_r_z, theta_conv_p );
+	// cout<<"TMath::Abs(z_DC_m_z_ver) "<<TMath::Abs(trk_e->GetZDC() - zvertex)<<" theta_conv_e "<<theta_conv_e<<endl;
+	pair->SetThetaElectron( theta_conv_e );
+	pair->SetThetaPositron( theta_conv_p );
 }
 
 TVector3 Reconstruction::findMomentum(MyTrack* trk, float r, float phi_conv, float theta_conv, float zvertex)
 {
 	TVector3 vec;
-	float mom = lookup_fit( TMath::Abs(trk->GetAlpha()), r, TMath::Abs(trk->GetZDC() - zvertex), 1, pimpl->alpha_r_z );
-	float phi = project_phi( trk->GetAlpha(), trk->GetPhiDC(), r, TMath::Abs(trk->GetZDC() - zvertex), pimpl->alpha_r_z );
-	float theta = lookup_fit( TMath::Abs(trk->GetAlpha()), r, TMath::Abs(trk->GetZDC() - zvertex), 2, pimpl->alpha_r_z );
-	if( trk->GetZDC() < zvertex ){theta = TMath::Pi() - theta; }
+	float mom, phi, theta;
+	lookup_fit( TMath::Abs(trk->GetAlpha()), r, TMath::Abs(trk->GetZDC() - zvertex), 1, pimpl->alpha_r_z, mom );
+	project_phi( trk->GetAlpha(), trk->GetPhiDC(), r, TMath::Abs(trk->GetZDC() - zvertex), pimpl->alpha_r_z, phi );
+	project_theta( trk->GetAlpha(), r, trk->GetZDC() - zvertex, pimpl->alpha_r_z, theta );
 
 	float pt = mom*sin(theta);
 	vec.SetPtThetaPhi( pt, theta, phi );
