@@ -175,7 +175,9 @@ static bool lookup_fit( float alpha, float r, float z_DC_m_z_ver, int ind, Point
 {
 	vector<PointValue_3x3> points;
 
-	if ( alpha<0 || r<0 || z_DC_m_z_ver<0 )
+	// r can be -9999 when find_conv() fails
+	if ( r<0 || r>max_r ) { lookup_ind = -9999.; return 0; }
+	if ( alpha<0 || z_DC_m_z_ver<0 )
 	{
 		cout<<"input error!!!"<<endl;
 		cout<<"lookup table contain only e- entries, please convert e+ to e- before fitting with lookup table"<<endl;
@@ -254,6 +256,10 @@ static bool project_phi( float alpha, float phiDC, float r, float z_DC_m_z_ver, 
 		if ( lookup_phi<0 )
 		{
 			cout<<"error!!! phi_conv-phi_DC can't be negative for electron using ++ field"<<endl;
+			cout<<"lookup_phi "<<lookup_phi<<endl;
+			cout<<"alpha "<<alpha<<endl;
+			cout<<"r "<<r<<endl;
+			cout<<"z_DC_m_z_ver "<<TMath::Abs(z_DC_m_z_ver)<<endl;
 			phi_r = -9999.;
 			return 0;
 		} 	
@@ -264,6 +270,7 @@ static bool project_phi( float alpha, float phiDC, float r, float z_DC_m_z_ver, 
 		if ( lookup_phi>0 )
 		{
 			cout<<"error!!! phi_conv-phi_DC can't be positive for positron using ++ field"<<endl;
+			cout<<"lookup_phi "<<lookup_phi<<endl;
 			phi_r = -9999.;
 			return 0;
 		} 
@@ -271,7 +278,7 @@ static bool project_phi( float alpha, float phiDC, float r, float z_DC_m_z_ver, 
 
 	phi_r = phiDC + lookup_phi;
 	// periodic boundary, to ensure phi_r from [-0.5pi, 1.5pi]
-	if (phi_r>1.5*TMath::Pi())  phi_r = phi_r-TMath::Pi();
+	if (phi_r>1.5*TMath::Pi())  phi_r = phi_r-2*TMath::Pi();
 	if (phi_r<-0.5*TMath::Pi()) phi_r = phi_r+2*TMath::Pi();
 	// else already in range, phi_r = phi_r
 	return 1;
@@ -361,20 +368,9 @@ static bool find_rconv( float alpha_e, float alpha_p, float phi_e, float phi_p, 
 	float dphi;
 	delta_phi( alpha_e, alpha_p, phi_e, phi_p, r_conv, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi );
 	cout<<"r_conv "<<r_conv<<" delta_phi "<<dphi<<endl;
+	if ( dphi < -9000 ) { r_conv = -9999.; return 0; } // can't do lookup_fit for the whole r range [0, max_r], dphi always -9999., and that's the minimum value
 
 	return 1;
-
-	// float r = 0, dphi = -9999.;
-	// for (int i = 0; i < 50; ++i)
-	// {
-	// 	r = 0.5*i;
-	// 	if( !delta_phi( alpha_e, alpha_p, phi_e, phi_p, r, z_DC_m_z_ver_e, z_DC_m_z_ver_p, alpha_r_z, dphi ) ) continue;
-	// 	cout<<"r "<<r<<" delta phi "<<dphi<<endl;
-	// }
-	// if ( r<0 || r>max_r ) { r_conv = -9999.; return 0; }
-
-	// r_conv = r;
-	// return 1;
 }
 
 
